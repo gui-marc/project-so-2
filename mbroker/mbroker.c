@@ -1,8 +1,27 @@
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "fs/operations.h"
 #include "logging.h"
 
 int main(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
+    if (argc < 3) {
+        PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
+    }
 
-    printf("%s", argv[0]);
+    const char *register_pipe_name = argv[1];
+    const char *max_sessions_str = argv[2];
+    const int max_sessions = atoi(max_sessions_str);
+
+    if (unlink(register_pipe_name) != 0 && errno != ENOENT) {
+        PANIC("failed to unlink fifo: %s\n", register_pipe_name);
+    }
+
+    if (mkfifo(register_pipe_name, 0640) != 0) {
+        PANIC("mkfifo failed: %s\n", register_pipe_name);
+    }
+
+    (void)max_sessions;
 }
