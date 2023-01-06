@@ -7,7 +7,6 @@
 //
 // This API will be used separately to test your producer consumer
 // implementation
-
 typedef struct {
     void **pcq_buffer;
     size_t pcq_capacity;
