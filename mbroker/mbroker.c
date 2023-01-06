@@ -15,10 +15,12 @@ int main(int argc, char **argv) {
     const char *max_sessions_str = argv[2];
     const int max_sessions = atoi(max_sessions_str);
 
+    // Remove the pipe if it does not exist
     if (unlink(register_pipe_name) != 0 && errno != ENOENT) {
         PANIC("failed to unlink fifo: %s\n", register_pipe_name);
     }
 
+    // Create named pipe (fifo)
     if (mkfifo(register_pipe_name, 0640) != 0) {
         PANIC("mkfifo failed: %s\n", register_pipe_name);
     }
