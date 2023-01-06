@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     const int max_sessions = atoi(max_sessions_str);
+    (void)max_sessions;
 
     // Remove the pipe if it does not exist
     if (unlink(register_pipe_name) != 0 && errno != ENOENT) {
@@ -25,5 +26,8 @@ int main(int argc, char **argv) {
         PANIC("mkfifo failed: %s\n", register_pipe_name);
     }
 
-    (void)max_sessions;
+    // Removes the pipe
+    if (remove(register_pipe_name) != 0) {
+        PANIC("failed to remove named pipe: %s\n", register_pipe_name);
+    }
 }
