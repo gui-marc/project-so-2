@@ -24,13 +24,11 @@ int main(int argc, char **argv) {
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
 
-    pc_queue_t *queue = malloc(sizeof(pc_queue_t));
-    if (queue == NULL) {
-        PANIC("not enough memory\n");
-    }
+    // Set mutexes
+    pc_queue_t pc_queue;
 
     // Creates the producer-consumer queue
-    if (pcq_create(queue, max_sessions) == -1) {
+    if (pcq_create(&pc_queue, max_sessions) == -1) {
         PANIC("failed to create queue\n");
     }
 
@@ -47,7 +45,7 @@ int main(int argc, char **argv) {
     // Create threads
     pthread_t threads[max_sessions];
     for (int i = 0; i < max_sessions; i++) {
-        pthread_create(&threads[i], NULL, listen_for_requests, queue);
+        pthread_create(&threads[i], NULL, listen_for_requests, &pc_queue);
     }
 
     // This waits to other process to write in the pipe
@@ -67,14 +65,14 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        pcq_enqueue(queue, buffer);
+        pcq_enqueue(&pc_queue, buffer);
     }
 
     // Closes the register pipe
     close(rx);
 
     // Destroys the queue
-    pcq_destroy(queue);
+    pcq_destroy(&pc_queue);
 
     // Wait for all threads to finish
     for (int i = 0; i < max_sessions; i++) {
