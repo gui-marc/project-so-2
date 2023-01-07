@@ -4,18 +4,23 @@
 #include "logging.h"
 #include "producer-consumer.h"
 
+// Todo: add more error treatment
+
 int pcq_create(pc_queue_t *queue, size_t capacity) {
     // There is no need to lock mutexes because at this point no thread was
     // created
 
     // Initializes mutexes and condvar
-    pthread_mutex_init(&queue->pcq_current_size_lock, NULL);
-    pthread_mutex_init(&queue->pcq_head_lock, NULL);
-    pthread_mutex_init(&queue->pcq_tail_lock, NULL);
-    pthread_mutex_init(&queue->pcq_popper_condvar_lock, NULL);
-    pthread_mutex_init(&queue->pcq_pusher_condvar_lock, NULL);
-    pthread_cond_init(&queue->pcq_popper_condvar, NULL);
-    pthread_cond_init(&queue->pcq_pusher_condvar, NULL);
+    if (pthread_mutex_init(&queue->pcq_current_size_lock, NULL) != 0 ||
+        pthread_mutex_init(&queue->pcq_head_lock, NULL) != 0 ||
+        pthread_mutex_init(&queue->pcq_tail_lock, NULL) != 0 ||
+        pthread_mutex_init(&queue->pcq_popper_condvar_lock, NULL) != 0 ||
+        pthread_mutex_init(&queue->pcq_pusher_condvar_lock, NULL) != 0 ||
+        pthread_cond_init(&queue->pcq_popper_condvar, NULL) != 0 ||
+        pthread_cond_init(&queue->pcq_pusher_condvar, NULL) != 0) {
+        WARN("error while initializing mutexes and condvar\n");
+        return -1;
+    }
 
     // Init variables as 0
     queue->pcq_current_size = 0;
@@ -42,14 +47,17 @@ int pcq_destroy(pc_queue_t *queue) {
         free(queue->pcq_buffer[i]);
     }
 
-    // Destroys all mutexes locks and condvar
-    pthread_mutex_destroy(&queue->pcq_current_size_lock);
-    pthread_mutex_destroy(&queue->pcq_head_lock);
-    pthread_mutex_destroy(&queue->pcq_tail_lock);
-    pthread_mutex_destroy(&queue->pcq_popper_condvar_lock);
-    pthread_mutex_destroy(&queue->pcq_pusher_condvar_lock);
-    pthread_cond_destroy(&queue->pcq_popper_condvar);
-    pthread_cond_destroy(&queue->pcq_pusher_condvar);
+    // Destroys all mutexes and condvar
+    if (pthread_mutex_destroy(&queue->pcq_current_size_lock) != 0 ||
+        pthread_mutex_destroy(&queue->pcq_head_lock) != 0 ||
+        pthread_mutex_destroy(&queue->pcq_tail_lock) != 0 ||
+        pthread_mutex_destroy(&queue->pcq_popper_condvar_lock) != 0 ||
+        pthread_mutex_destroy(&queue->pcq_pusher_condvar_lock) != 0 ||
+        pthread_cond_destroy(&queue->pcq_popper_condvar) != 0 ||
+        pthread_cond_destroy(&queue->pcq_pusher_condvar) != 0) {
+        WARN("error while destroying mutexes and condvar\n");
+        return -1;
+    }
 
     return 0;
 };

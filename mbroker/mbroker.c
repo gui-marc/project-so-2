@@ -68,19 +68,19 @@ int main(int argc, char **argv) {
         pcq_enqueue(&pc_queue, buffer);
     }
 
-    // Closes the register pipe
-    close(rx);
-
-    // Destroys the queue
-    pcq_destroy(&pc_queue);
-
     // Wait for all threads to finish
     for (int i = 0; i < max_sessions; i++) {
         pthread_join(threads[i], NULL);
     }
 
+    // Closes the register pipe
+    close(rx);
+
     // Removes the pipe
     if (remove(register_pipe_name) != 0) {
         PANIC("failed to remove named pipe: %s\n", register_pipe_name);
     }
+
+    // Destroys the queue
+    pcq_destroy(&pc_queue);
 }
