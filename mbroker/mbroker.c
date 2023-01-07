@@ -24,9 +24,8 @@ int main(int argc, char **argv) {
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
 
-    // Set mutexes
+    // producer-consumer queue
     pc_queue_t pc_queue;
-
     // Creates the producer-consumer queue
     if (pcq_create(&pc_queue, max_sessions) == -1) {
         PANIC("failed to create queue\n");
