@@ -24,9 +24,19 @@ int pcq_create(pc_queue_t *queue, size_t capacity) {
 };
 
 int pcq_destroy(pc_queue_t *queue) {
-    (void)queue;
-    WARN("unimplemented"); // TODO: implement
-    return -1;
+    // Frees all buffer related memory
+    for (size_t i = 0; i < queue->pcq_capacity; i++) {
+        free(queue->pcq_buffer[i]);
+    }
+
+    // Destroys both semaphores
+    if (sem_destroy(&sem_has_space) != 0 ||
+        sem_destroy(&sem_has_element) != 0) {
+        WARN("failed to destroy semaphores");
+        return -1;
+    }
+
+    return 0;
 };
 
 int pcq_enqueue(pc_queue_t *queue, void *elem) {
