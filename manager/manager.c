@@ -3,8 +3,6 @@
 
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
-#define DEBUG(str) (fprintf(stderr, "DEBUG: %s\n", str))
-
 /*
 Assim que é lançado, o manager:
 
@@ -31,43 +29,46 @@ int list_boxes() {
 }
 
 int create_box(const char *boxname) { 
-    fprintf(stderr, "DEBUG: Creating box %s", boxname);
+    DEBUG("Creating box '%s'", boxname);
     WARN("unimplemented");
     return 0; 
 }
 
 int remove_box(const char *boxname) {
-    fprintf(stderr, "Removing box %s", boxname);
-    DEBUG(("Removing box %s", boxname));
-    (void)boxname;
+    DEBUG("Removing box '%s'", boxname);
     WARN("unimplemented");
      return 0;
 }
 
+int init_manager() {
+    return 0;
+}
+
 int main(int argc, char **argv) {
-    fprintf(stderr, "DEBUG: argc: %d\n", argc);
-    if (argc < 2) {
-        // fprintf(stderr, "Invalid number of arguments\n");
+
+    set_log_level(LOG_VERBOSE); //TODO: Remove
+    DEBUG("argc = '%d'", argc);
+    if (!(argc == 3 || argc == 4)) {
         print_usage();
         return -1;
     }
     char *register_pipe_name = argv[1];
 
-    fprintf(stderr, "DEBUG: Register pipe name: %s\n", register_pipe_name);
+    DEBUG("Register pipe name = '%s'", register_pipe_name);
     char *operation = argv[2];
-    fprintf(stderr, "DEBUG: Operation '%s'\n", operation);
-
-    if (STR_MATCH(operation, "create") && argc == 3) {
+    DEBUG("Operation = '%s'", operation);
+    //Todo: ensure correct argc AND create a function to sanitize alphanumeric words
+    if (STR_MATCH(operation, "create") && argc == 4) {
         char *boxname = argv[2];
         create_box(boxname);
     }
     // We could allow more arguments and just ignore them,
     // but it's better to inform the user of the correct CLI usage
-    else if (STR_MATCH(operation, "remove") && argc == 3) {
+    else if (STR_MATCH(operation, "remove") && argc == 4) { 
         char *boxname = argv[2];
         create_box(boxname);
     }
-     else if (STR_MATCH(operation, "list") && argc == 2) {
+     else if (STR_MATCH(operation, "list") && argc == 3) {
         list_boxes();
     } 
     else {
