@@ -20,36 +20,57 @@
 #define CODE_PUBLISHER_MESSAGE 9
 #define CODE_SUBSCRIBER_MESSAGE 10
 
+struct named_pipes {
+    int write_fd;
+    int read_fd;
+};
+
+/*
+* Client function: creates a write-only pipe to talk to the server 
+* and a read-only pipe to listen to the server.
+* TODO: Assinaturas de funções
+*/
+void client_create_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
+
+//TODO: asinatura desta funcao
+struct named_pipes client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
+
+//TODO: ver comentairo acima
+struct named_pipes server_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
+
+/**
+ * Server function: 
+*/
 /**
  * Creates a protocol string to register a publisher
  *
- * @param client_named_pipe_path string (char[256]) containing the path to the
+ * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing the path to the
  * fifo
  * @param box_name the name of the box that the publisher will publish the
  * message in
  */
-char *register_publisher_protocol(const char client_named_pipe_path[256],
+char *register_publisher_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                   const char box_name[32]);
 
 /**
  * Creates a protocol string to register a subscriber
  *
- * @param client_named_pipe_path string (char[256]) containing the path to the
+ * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing the path to the
  * fifo
  * @param box_name the name of the box that the subscriber will listen for
  * messages
  */
-char *register_subscriber_protocol(const char client_named_pipe_path[256],
+char *register_subscriber_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                    const char box_name[32]);
 
 /**
  * Creates a protocol string to request creation of a box
  *
- * @param client_named_pipe_path string (char[256]) containing the path to the
+ * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing the path to the
  * fifo
  * @param box_name the name of the box that will be created
  */
-char *create_box_request_protocol(const char client_named_pipe_path[256],
+char *create_box_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                   const char box_name[32]);
 
 /**
@@ -65,11 +86,11 @@ char *create_box_response_protocol(const int32_t return_code,
 /**
  * Creates a protocol string to request a box removal
  *
- * @param client_named_pipe_path string (char[256]) containing the path to the
+ * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing the path to the
  * fifo
  * @param box_name the box to be removed
  */
-char *remove_box_request_protocol(const char client_named_pipe_path[256],
+char *remove_box_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                   const char box_name[32]);
 
 /**
@@ -85,10 +106,10 @@ char *remove_box_response_protocol(const int32_t return_code,
 /**
  * Creates a protocol string to request a list of boxes
  *
- * @param client_named_pipe_path string (char[256]) containing the path to the
+ * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing the path to the
  * fifo
  */
-char *list_boxes_request_protocol(const char client_named_pipe_path[256]);
+char *list_boxes_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
 
 /**
  * Creates a protocol string to respond to a list_boxes_request
