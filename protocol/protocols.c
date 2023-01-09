@@ -22,7 +22,7 @@ char *register_publisher_protocol(const char client_named_pipe_path[256],
     return protocol_message;
 }
 
-char *register_subscriber_protocol(const char client_named_pipe_path[256],
+char *register_subscriber_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                    const char box_name[32]) {
     char *protocol_message = alloc_protocol_message();
     sprintf(protocol_message, "%d|%s|%s", CODE_REGISTER_SUBSCRIBER,
@@ -30,7 +30,7 @@ char *register_subscriber_protocol(const char client_named_pipe_path[256],
     return protocol_message;
 }
 
-char *create_box_request_protocol(const char client_named_pipe_path[256],
+char *create_box_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                   const char box_name[32]) {
     char *protocol_message = alloc_protocol_message();
     sprintf(protocol_message, "%d|%s|%s", CODE_CREATE_BOX_REQUEST,
@@ -46,7 +46,7 @@ char *create_box_response_protocol(int32_t return_code,
     return protocol_message;
 }
 
-char *remove_box_request_protocol(const char client_named_pipe_path[256],
+char *remove_box_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE],
                                   const char box_name[32]) {
     char *protocol_message = alloc_protocol_message();
     sprintf(protocol_message, "%d|%s|%s", CODE_REMOVE_BOX_REQUEST,
@@ -62,7 +62,7 @@ char *remove_box_response_protocol(const int32_t return_code,
     return protocol_message;
 }
 
-char *list_boxes_request_protocol(const char client_named_pipe_path[256]) {
+char *list_boxes_request_protocol(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
     char *protocol_message = alloc_protocol_message();
     sprintf(protocol_message, "%d|%s", CODE_LIST_BOXES_REQUEST,
             client_named_pipe_path);

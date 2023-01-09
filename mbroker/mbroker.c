@@ -10,6 +10,7 @@
 #include "fs/operations.h"
 #include "logging.h"
 #include "producer-consumer.h"
+#include "protocols.h"
 #include "requests.h"
 
 #define MAX_PROTOCOL_SIZE 2048
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
     }
 
     // Create named pipe (fifo)
-    if (mkfifo(register_pipe_name, 0640) != 0) {
+    if (mkfifo(register_pipe_name, MKFIFO_PERMS) != 0) {
         PANIC("mkfifo failed: %s\n", register_pipe_name);
     }
 
