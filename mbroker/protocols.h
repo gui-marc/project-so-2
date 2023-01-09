@@ -25,8 +25,8 @@
  * @param box_name the name of the box that the publisher will publish the
  * message in
  */
-char *register_publisher_protocol(char client_named_pipe_path[256],
-                                  char box_name[32]);
+char *register_publisher_protocol(const char client_named_pipe_path[256],
+                                  const char box_name[32]);
 
 /**
  * Creates a protocol string to register a subscriber
@@ -36,8 +36,8 @@ char *register_publisher_protocol(char client_named_pipe_path[256],
  * @param box_name the name of the box that the subscriber will listen for
  * messages
  */
-char *register_subscriber_protocol(char client_named_pipe_path[256],
-                                   char box_name[32]);
+char *register_subscriber_protocol(const char client_named_pipe_path[256],
+                                   const char box_name[32]);
 
 /**
  * Creates a protocol string to request creation of a box
@@ -46,8 +46,8 @@ char *register_subscriber_protocol(char client_named_pipe_path[256],
  * fifo
  * @param box_name the name of the box that will be created
  */
-char *create_box_request_protocol(char client_named_pipe_path[256],
-                                  char box_name[32]);
+char *create_box_request_protocol(const char client_named_pipe_path[256],
+                                  const char box_name[32]);
 
 /**
  * Creates a protocol string to respond to a box creation request
@@ -56,8 +56,8 @@ char *create_box_request_protocol(char client_named_pipe_path[256],
  * @param error_message if no error is '\0' otherwise, must send an error
  * message
  */
-char *create_box_response_protocol(int32_t return_code,
-                                   char error_message[1024]);
+char *create_box_response_protocol(const int32_t return_code,
+                                   const char error_message[1024]);
 
 /**
  * Creates a protocol string to request a box removal
@@ -66,8 +66,8 @@ char *create_box_response_protocol(int32_t return_code,
  * fifo
  * @param box_name the box to be removed
  */
-char *remove_box_request_protocol(char client_named_pipe_path[256],
-                                  char box_name[32]);
+char *remove_box_request_protocol(const char client_named_pipe_path[256],
+                                  const char box_name[32]);
 
 /**
  * Creates a protocol string to respond to a box removal request
@@ -76,8 +76,8 @@ char *remove_box_request_protocol(char client_named_pipe_path[256],
  * @param error_message if no error is '\0' otherwise, must send an error
  * message
  */
-char *remove_box_response_protocol(int32_t return_code,
-                                   char error_message[1024]);
+char *remove_box_response_protocol(const int32_t return_code,
+                                   const char error_message[1024]);
 
 /**
  * Creates a protocol string to request a list of boxes
@@ -85,7 +85,7 @@ char *remove_box_response_protocol(int32_t return_code,
  * @param client_named_pipe_path string (char[256]) containing the path to the
  * fifo
  */
-char *list_boxes_request_protocol(char client_named_pipe_path[256]);
+char *list_boxes_request_protocol(const char client_named_pipe_path[256]);
 
 /**
  * Creates a protocol string to respond to a list_boxes_request
@@ -97,22 +97,22 @@ char *list_boxes_request_protocol(char client_named_pipe_path[256]);
  * @param n_publishers publishers connected to the box
  * @param n_subscribers subscribers connected to the box
  */
-char *list_boxes_response_protocol(uint8_t last, char box_name[32],
-                                   uint64_t box_size, uint64_t n_publishers,
-                                   uint64_t n_subscribers);
+char *list_boxes_response_protocol(const uint8_t last, const char box_name[32],
+                                   const uint64_t box_size, const uint64_t n_publishers,
+                                   const uint64_t n_subscribers);
 
 /**
  * Creates a protocol string that the publisher uses
  *
  * @param message the message to be sent to the server
  */
-char *publisher_message_protocol(char message[1024]);
+char *publisher_message_protocol(const char message[1024]);
 
 /**
  * Creates a protocol string that the subscriber uses
  *
  * @param message the message to be sent to the server
  */
-char *subscriber_message_protocol(char message[1024]);
+char *subscriber_message_protocol(const char message[1024]);
 
 #endif
