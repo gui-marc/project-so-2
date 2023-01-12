@@ -147,3 +147,28 @@ const void *subscriber_message_proto(const char *message) {
     strcpy(p->message, message);
     return p;
 }
+
+const ssize_t prot_size(uint8_t code) {
+    ssize_t sz = 0;
+    switch (code) {
+    case REGISTER_PUBLISHER:
+    case REGISTER_SUBSCRIBER:
+    case CREATE_BOX_REQUEST:
+    case REMOVE_BOX_REQUEST:
+        sz = sizeof(request_protocol_t);
+        break;
+    case LIST_BOXES_REQUEST:
+        sz = sizeof(list_boxes_request_protocol_t);
+        break;
+    case REMOVE_BOX_RESPONSE:
+    case CREATE_BOX_RESPONSE:
+        sz = sizeof(response_protocol_t);
+        break;
+    case LIST_BOXES_RESPONSE:
+        sz = sizeof(list_boxes_response_protocol_t);
+    default:
+        WARN("invalid protocol code\n");
+        break;
+    }
+    return sz;
+}
