@@ -12,7 +12,8 @@
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        fprintf(stderr, "usage: sub <register_pipe_name> <box_name>\n");
+        fprintf(stderr,
+                "usage: sub <register_pipe_name> <pipe_name> <box_name>\n");
     }
 
     ALWAYS_ASSERT(argc == 3, "Invalid usage");
