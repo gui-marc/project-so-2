@@ -28,25 +28,23 @@ int list_boxes() {
     return 0;
 }
 
-int create_box(const char *boxname) { 
+int create_box(const char *boxname) {
     DEBUG("Creating box '%s'", boxname);
     WARN("unimplemented");
-    return 0; 
+    return 0;
 }
 
 int remove_box(const char *boxname) {
     DEBUG("Removing box '%s'", boxname);
     WARN("unimplemented");
-     return 0;
-}
-
-int init_manager() {
     return 0;
 }
 
+int init_manager() { return 0; }
+
 int main(int argc, char **argv) {
 
-    set_log_level(LOG_VERBOSE); //TODO: Remove
+    set_log_level(LOG_VERBOSE); // TODO: Remove
     DEBUG("argc = '%d'", argc);
     if (!(argc == 3 || argc == 4)) {
         print_usage();
@@ -57,21 +55,20 @@ int main(int argc, char **argv) {
     DEBUG("Register pipe name = '%s'", register_pipe_name);
     char *operation = argv[2];
     DEBUG("Operation = '%s'", operation);
-    //Todo: ensure correct argc AND create a function to sanitize alphanumeric words
+    // Todo: ensure correct argc AND create a function to sanitize alphanumeric
+    // words
     if (STR_MATCH(operation, "create") && argc == 4) {
         char *boxname = argv[2];
         create_box(boxname);
     }
     // We could allow more arguments and just ignore them,
     // but it's better to inform the user of the correct CLI usage
-    else if (STR_MATCH(operation, "remove") && argc == 4) { 
+    else if (STR_MATCH(operation, "remove") && argc == 4) {
         char *boxname = argv[2];
         create_box(boxname);
-    }
-     else if (STR_MATCH(operation, "list") && argc == 3) {
+    } else if (STR_MATCH(operation, "list") && argc == 3) {
         list_boxes();
-    } 
-    else {
+    } else {
         print_usage();
         return -1;
     }

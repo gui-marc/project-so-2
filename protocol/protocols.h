@@ -23,10 +23,10 @@ typedef enum codes_e {
     SUBSCRIBER_MESSAGE
 } CODES;
 
-struct named_pipes {
+typedef struct named_pipes {
     int write_fd;
     int read_fd;
-};
+} named_pipes_t;
 
 /*
  * Client function: creates a write-only pipe to talk to the server
@@ -37,11 +37,11 @@ void client_create_pipes(
     const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
 
 // TODO: asinatura desta funcao
-struct named_pipes
+named_pipes_t
 client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
 
 // TODO: ver comentairo acima
-struct named_pipes
+named_pipes_t
 server_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
 
 /**

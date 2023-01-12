@@ -58,6 +58,8 @@ int main(int argc, char **argv) {
         protocol_t *protocol = malloc(sizeof(protocol_t));
         ssize_t ret = read(rx, protocol, sizeof(protocol_t));
 
+        printf("%d\n", protocol->base.code);
+
         if (ret == 0) {
             INFO("pipe closed\n");
             break; // Stop listening

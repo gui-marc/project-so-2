@@ -25,9 +25,9 @@ void client_create_pipes(
                   "Failed to create server named pipe.");
 }
 
-struct named_pipes
+named_pipes_t
 client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
-    struct named_pipes np = {-1, -1};
+    named_pipes_t np = {-1, -1};
 
     char client_reply_path[NAMED_PIPE_PATH_SIZE];
     sprintf(client_reply_path, "%s-reply", client_named_pipe_path);
@@ -40,9 +40,9 @@ client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
     return np;
 }
 
-struct named_pipes
+named_pipes_t
 server_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
-    struct named_pipes np = {-1, -1};
+    named_pipes_t np = {-1, -1};
 
     char client_reply_path[NAMED_PIPE_PATH_SIZE];
     sprintf(client_reply_path, "%s-reply", client_named_pipe_path);
