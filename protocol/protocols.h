@@ -6,9 +6,9 @@
 
 #define MKFIFO_PERMS 0640
 
-#define NAMED_PIPE_PATH_SIZE 256
-#define MESSAGE_SIZE 1024
+#define NPIPE_PATH_SIZE 256
 #define BOX_NAME_SIZE 32
+#define ERR_MSG_SIZE 1024
 
 typedef enum codes_e {
     REGISTER_PUBLISHER = 1,
@@ -23,26 +23,6 @@ typedef enum codes_e {
     SUBSCRIBER_MESSAGE
 } CODES;
 
-struct named_pipes {
-    int write_fd;
-    int read_fd;
-};
-
-/*
- * Client function: creates a write-only pipe to talk to the server
- * and a read-only pipe to listen to the server.
- * TODO: Assinaturas de funções
- */
-void client_create_pipes(
-    const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
-
-// TODO: asinatura desta funcao
-struct named_pipes
-client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
-
-// TODO: ver comentairo acima
-struct named_pipes
-server_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]);
 
 /**
  * Protocol
@@ -60,19 +40,19 @@ typedef struct protocol_t {
 
 typedef struct request_protocol_t {
     struct protocol_base_t base;
-    char client_named_pipe_path[NAMED_PIPE_PATH_SIZE];
+    char client_named_pipe_path[NPIPE_PATH_SIZE];
     char box_name[BOX_NAME_SIZE];
 } request_protocol_t;
 
 typedef struct response_protocol_t {
     struct protocol_base_t base;
     int32_t return_code;
-    char error_message[MESSAGE_SIZE];
+    char error_message[ERR_MSG_SIZE];
 } response_protocol_t;
 
 typedef struct list_boxes_request_protocol_t {
     struct protocol_base_t base;
-    char client_named_pipe_path[NAMED_PIPE_PATH_SIZE];
+    char client_named_pipe_path[NPIPE_PATH_SIZE];
 } list_boxes_request_protocol_t;
 
 typedef struct list_boxes_response_protocol_t {
@@ -86,13 +66,13 @@ typedef struct list_boxes_response_protocol_t {
 
 typedef struct message_protocol_t {
     struct protocol_base_t base;
-    char message[MESSAGE_SIZE];
+    char message[ERR_MSG_SIZE];
 } message_protocol_t;
 
 /**
  * Creates a protocol string to register a publisher
  *
- * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing
+ * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  * @param box_name the name of the box that the publisher will publish the
  * message in
@@ -103,7 +83,7 @@ const void *register_publisher_protocol(const char *client_named_pipe_path,
 /**
  * Creates a protocol string to register a subscriber
  *
- * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing
+ * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  * @param box_name the name of the box that the subscriber will listen for
  * messages
@@ -114,7 +94,7 @@ const void *register_subscriber_protocol(const char *client_named_pipe_path,
 /**
  * Creates a protocol string to request creation of a box
  *
- * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing
+ * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  * @param box_name the name of the box that will be created
  */
@@ -134,7 +114,7 @@ const void *create_box_response_protocol(int32_t return_code,
 /**
  * Creates a protocol string to request a box removal
  *
- * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing
+ * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  * @param box_name the box to be removed
  */
@@ -154,7 +134,7 @@ const void *remove_box_response_protocol(const int32_t return_code,
 /**
  * Creates a protocol string to request a list of boxes
  *
- * @param client_named_pipe_path string (char[NAMED_PIPE_PATH_SIZE]) containing
+ * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  */
 const void *list_boxes_request_protocol(const char *client_named_pipe_path);

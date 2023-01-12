@@ -10,49 +10,18 @@
 #include "logging.h"
 #include "protocols.h"
 
-void client_create_pipes(
-    const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
-    char client_reply_path[NAMED_PIPE_PATH_SIZE];
-    sprintf(client_reply_path, "%s-reply", client_named_pipe_path);
-    ALWAYS_ASSERT(unlink(client_named_pipe_path) == 0,
+
+void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
+    ALWAYS_ASSERT(unlink(npipe_path) == 0,
                   "Failed to cleanup/unlink client named pipe.");
-    ALWAYS_ASSERT(unlink(client_reply_path) == 0,
-                  "Failed to cleanup/unlink server named pipe.");
-
-    ALWAYS_ASSERT(mkfifo(client_named_pipe_path, MKFIFO_PERMS) == 0,
+    ALWAYS_ASSERT(mkfifo(npipe_path, MKFIFO_PERMS) == 0,
                   "Failed to create client named pipe.");
-    ALWAYS_ASSERT(mkfifo(client_reply_path, MKFIFO_PERMS) == 0,
-                  "Failed to create server named pipe.");
 }
 
-struct named_pipes
-client_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
-    struct named_pipes np = {-1, -1};
-
-    char client_reply_path[NAMED_PIPE_PATH_SIZE];
-    sprintf(client_reply_path, "%s-reply", client_named_pipe_path);
-
-    np.write_fd = open(client_named_pipe_path, O_WRONLY);
-    ALWAYS_ASSERT(np.write_fd != -1, "Failed to open client named pipe")
-
-    np.read_fd = open(client_reply_path, O_RDONLY);
-    ALWAYS_ASSERT(np.read_fd != -1, "Failed to open client-reply named pipe");
-    return np;
-}
-
-struct named_pipes
-server_open_pipes(const char client_named_pipe_path[NAMED_PIPE_PATH_SIZE]) {
-    struct named_pipes np = {-1, -1};
-
-    char client_reply_path[NAMED_PIPE_PATH_SIZE];
-    sprintf(client_reply_path, "%s-reply", client_named_pipe_path);
-
-    np.read_fd = open(client_named_pipe_path, O_RDONLY);
-    ALWAYS_ASSERT(np.write_fd != -1, "Failed to open client named pipe")
-
-    np.write_fd = open(client_reply_path, O_WRONLY);
-    ALWAYS_ASSERT(np.read_fd != -1, "Failed to open client-reply named pipe");
-    return np;
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
+    int fd = open(npipe_path, O_WRONLY);
+    ALWAYS_ASSERT(fd != -1, "Failed to open client named pipe")
+    return fd;
 }
 
 void *request_protocol(uint8_t code, const char *client_named_pipe_path,
