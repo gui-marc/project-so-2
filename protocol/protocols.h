@@ -103,13 +103,16 @@ void *list_boxes_response_protocol(const uint8_t last,
  *
  * @param message the message to be sent to the server
  */
-void *message_protocol(const char *message);
+void *message_proto(const char *message);
 
 /**
  * Returns the right size of a protocol
  *
  * @param code protocol code
  */
-size_t prot_size(uint8_t code);
+size_t proto_size(uint8_t code);
+
+
+void send_proto_string(const int fd, const uint8_t opcode,const void *proto);
 
 #endif

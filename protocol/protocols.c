@@ -21,21 +21,18 @@ uint8_t recv_opcode(const int fd) {
     return opcode;
 }
 
-void send_opcode(const int fd, const uint8_t opcode) {
+void send_proto_string(const int fd, const uint8_t opcode,const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    size_t buf_size = sizeof(uint8_t);
-    ALWAYS_ASSERT(write(fd, &opcode, buf_size) == buf_size, "Failed to write opcode");
+    size_t size = proto_size(opcode);
+    char *final = malloc(sizeof(uint8_t) + size);
+    
+    memcpy(final, &opcode, sizeof(uint8_t));
+    memcpy(final + sizeof(uint8_t), proto, size);
+
+   ALWAYS_ASSERT(write(fd, proto, size) == size, "Failed to write proto");
 }
 
-void send_proto(const int fd, void *proto, const unsigned int proto_size) {
-   ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-   ALWAYS_ASSERT(write(fd, proto, proto_size) == proto_size, "Failed to write proto");
-}
 
-void recv_proto(const int fd, void *proto, const unsigned int proto_size) {
-    ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    ALWAYS_ASSERT(read(fd, proto, proto_size) == proto_size, "Failed to read proto");
-}
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
     ALWAYS_ASSERT(unlink(npipe_path) == 0,
@@ -94,7 +91,7 @@ void * message_proto(const char *message) {
     return p;
 }
 
-size_t prot_size(uint8_t code) {
+size_t proto_size(uint8_t code) {
     size_t sz = 0;
     switch (code) {
     case REGISTER_PUBLISHER:

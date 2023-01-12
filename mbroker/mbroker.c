@@ -65,8 +65,8 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        void * protocol = malloc(prot_size(prot_code));
-        ret = read(rx, protocol, prot_size(prot_code));
+        void * protocol = malloc(proto_size(prot_code));
+        ret = read(rx, protocol, proto_size(prot_code));
 
         queue_obj_t *obj = malloc(sizeof(queue_obj_t));
 
