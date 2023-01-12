@@ -15,23 +15,16 @@
 uint8_t recv_opcode(const int fd) {
     uint8_t opcode;
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    uint8_t buf_size = sizeof(uint8_t);
-    char *buffer = malloc(buf_size);
-
-    ALWAYS_ASSERT(read(fd, buffer, buf_size) == buf_size, "Failed to read opcode");
-    opcode = (uint8_t) atoi(buffer);
+    size_t buf_size = sizeof(uint8_t);
+    ALWAYS_ASSERT(read(fd, &opcode, buf_size) == buf_size, "Failed to read opcode");
     ALWAYS_ASSERT(opcode != 0, "Failed to convert opcode");
-    free(buffer);
     return opcode;
 }
 
 void send_opcode(const int fd, const uint8_t opcode) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    uint8_t buf_size = sizeof(uint8_t);
-    char *buffer = malloc(buf_size);
-    sprintf(buffer, "%d", opcode);
-    ALWAYS_ASSERT(write(fd, buffer, buf_size) == buf_size, "Failed to write opcode");
-    free(buffer);
+    size_t buf_size = sizeof(uint8_t);
+    ALWAYS_ASSERT(write(fd, &opcode, buf_size) == buf_size, "Failed to write opcode");
 }
 
 void send_proto(const int fd, void *proto, const unsigned int proto_size) {
@@ -57,63 +50,25 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
     return fd;
 }
 
-void *request_proto(uint8_t code, const char *client_named_pipe_path,
+void *request_proto(const char *client_named_pipe_path,
                        const char *box_name) {
     request_proto_t *p = malloc(sizeof(request_proto_t));
-    p->base.code = code;
     strcpy(p->box_name, box_name);
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
 
-
-void *response_proto(uint8_t code, int32_t return_code,
+void *response_proto(int32_t return_code,
                         const char *error_message) {
     response_proto_t *p = malloc(sizeof(response_proto_t));
-    p->base.code = code;
     p->return_code = return_code;
-    strcpy(p->error_message, error_message);
+    strcpy(p->error_msg, error_message);
     return p;
-}
-
-const void *register_publisher_proto(const char *client_named_pipe_path,
-                                        const char *box_name) {
-    return request_proto(REGISTER_PUBLISHER, client_named_pipe_path,
-                            box_name);
-}
-
-const void *register_subscriber_proto(const char *client_named_pipe_path,
-                                         const char *box_name) {
-    return request_proto(REGISTER_SUBSCRIBER, client_named_pipe_path,
-                            box_name);
-}
-
-const void *create_box_request_proto(const char *client_named_pipe_path,
-                                        const char *box_name) {
-    return request_proto(CREATE_BOX_REQUEST, client_named_pipe_path,
-                            box_name);
-}
-
-const void *create_box_response_proto(int32_t return_code,
-                                         const char *error_message) {
-    return response_proto(CREATE_BOX_RESPONSE, return_code, error_message);
-}
-
-const void *remove_box_request_proto(const char *client_named_pipe_path,
-                                        const char *box_name) {
-    return request_proto(REMOVE_BOX_REQUEST, client_named_pipe_path,
-                            box_name);
-}
-
-const void *remove_box_response_proto(const int32_t return_code,
-                                         const char *error_message) {
-    return response_proto(REMOVE_BOX_RESPONSE, return_code, error_message);
 }
 
 const void *list_boxes_request_proto(const char *client_named_pipe_path) {
     list_boxes_request_proto_t *p =
-        malloc(sizeof(list_boxes_request_proto_t));
-    p->base.code = LIST_BOXES_REQUEST;
+        calloc(1,sizeof(list_boxes_request_proto_t));
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
@@ -125,7 +80,6 @@ const void *list_boxes_response_proto(const uint8_t last,
                                          const uint64_t n_subscribers) {
     list_boxes_response_proto_t *p =
         malloc(sizeof(list_boxes_response_proto_t));
-    p->base.code = LIST_BOXES_RESPONSE;
     p->last = last;
     p->box_size = box_size;
     p->n_publishers = n_publishers;
@@ -134,40 +88,33 @@ const void *list_boxes_response_proto(const uint8_t last,
     return p;
 }
 
-const void *publisher_message_proto(const char *message) {
-    message_proto_t *p = malloc(sizeof(message_proto_t));
-    p->base.code = PUBLISHER_MESSAGE;
-    strcpy(p->message, message);
+void * message_proto(const char *message) {
+    basic_msg_proto_t *p = malloc(sizeof(basic_msg_proto_t));
+    strcpy(p->msg, message);
     return p;
 }
 
-const void *subscriber_message_proto(const char *message) {
-    message_proto_t *p = malloc(sizeof(message_proto_t));
-    p->base.code = SUBSCRIBER_MESSAGE;
-    strcpy(p->message, message);
-    return p;
-}
-
-const ssize_t prot_size(uint8_t code) {
-    ssize_t sz = 0;
+size_t prot_size(uint8_t code) {
+    size_t sz = 0;
     switch (code) {
     case REGISTER_PUBLISHER:
     case REGISTER_SUBSCRIBER:
     case CREATE_BOX_REQUEST:
     case REMOVE_BOX_REQUEST:
-        sz = sizeof(request_protocol_t);
+        sz = sizeof(request_proto_t);
         break;
     case LIST_BOXES_REQUEST:
-        sz = sizeof(list_boxes_request_protocol_t);
+        sz = sizeof(list_boxes_request_proto_t);
         break;
     case REMOVE_BOX_RESPONSE:
     case CREATE_BOX_RESPONSE:
-        sz = sizeof(response_protocol_t);
+        sz = sizeof(response_proto_t);
         break;
     case LIST_BOXES_RESPONSE:
-        sz = sizeof(list_boxes_response_protocol_t);
+        sz = sizeof(list_boxes_response_proto_t);
+        break;
     default:
-        WARN("invalid protocol code\n");
+        WARN("invalid proto code\n");
         break;
     }
     return sz;
