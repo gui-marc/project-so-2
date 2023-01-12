@@ -22,19 +22,19 @@ void *listen_for_requests(void *queue) {
 
 void parse_request(uint8_t request_code, protocol_t *protocol) {
     switch (request_code) {
-    case CODE_REGISTER_PUBLISHER:
+    case REGISTER_PUBLISHER:
         register_publisher(protocol);
         break;
-    case CODE_REGISTER_SUBSCRIBER:
+    case REGISTER_SUBSCRIBER:
         register_subscriber(protocol);
         break;
-    case CODE_CREATE_BOX_REQUEST:
+    case CREATE_BOX_REQUEST:
         create_box(protocol);
         break;
-    case CODE_REMOVE_BOX_REQUEST:
+    case REMOVE_BOX_REQUEST:
         remove_box(protocol);
         break;
-    case CODE_LIST_BOXES_REQUEST:
+    case LIST_BOXES_REQUEST:
         list_boxes(protocol);
         break;
     default:
