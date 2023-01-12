@@ -23,7 +23,6 @@ typedef enum codes_e {
     SUBSCRIBER_MESSAGE
 } CODES;
 
-
 /**
  * Protocol
  *
@@ -168,5 +167,12 @@ const void *publisher_message_protocol(const char *message);
  * @param message the message to be sent to the server
  */
 const void *subscriber_message_protocol(const char *message);
+
+/**
+ * Returns the right size of a protocol
+ *
+ * @param code protocol code
+ */
+const ssize_t prot_size(uint8_t code);
 
 #endif

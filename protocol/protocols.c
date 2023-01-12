@@ -10,7 +10,6 @@
 #include "logging.h"
 #include "protocols.h"
 
-
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
     ALWAYS_ASSERT(unlink(npipe_path) == 0,
                   "Failed to cleanup/unlink client named pipe.");
@@ -112,4 +111,29 @@ const void *subscriber_message_protocol(const char *message) {
     p->base.code = SUBSCRIBER_MESSAGE;
     strcpy(p->message, message);
     return p;
+}
+
+const ssize_t prot_size(uint8_t code) {
+    ssize_t sz = 0;
+    switch (code) {
+    case REGISTER_PUBLISHER:
+    case REGISTER_SUBSCRIBER:
+    case CREATE_BOX_REQUEST:
+    case REMOVE_BOX_REQUEST:
+        sz = sizeof(request_protocol_t);
+        break;
+    case LIST_BOXES_REQUEST:
+        sz = sizeof(list_boxes_request_protocol_t);
+        break;
+    case REMOVE_BOX_RESPONSE:
+    case CREATE_BOX_RESPONSE:
+        sz = sizeof(response_protocol_t);
+        break;
+    case LIST_BOXES_RESPONSE:
+        sz = sizeof(list_boxes_response_protocol_t);
+    default:
+        WARN("invalid protocol code\n");
+        break;
+    }
+    return sz;
 }
