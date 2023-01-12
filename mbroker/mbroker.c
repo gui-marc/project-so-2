@@ -13,8 +13,6 @@
 #include "protocols.h"
 #include "requests.h"
 
-#define MAX_PROTOCOL_SIZE 2048
-
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
     if (argc < 3) {
@@ -52,12 +50,14 @@ int main(int argc, char **argv) {
     int rx = open(register_pipe_name, O_RDONLY);
     if (rx == -1) {
         PANIC("failed to open register pipe: %s\n", register_pipe_name);
+        remove(register_pipe_name);
     }
 
     // Listen to events in the register pipe
     while (true) {
-        char buffer[MAX_PROTOCOL_SIZE];
-        ssize_t ret = read(rx, buffer, MAX_PROTOCOL_SIZE);
+        protocol_t *protocol = malloc(sizeof(protocol_t));
+        ssize_t ret = read(rx, protocol, sizeof(protocol_t));
+
         if (ret == 0) {
             INFO("pipe closed\n");
             break; // Stop listening
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        pcq_enqueue(&pc_queue, buffer);
+        pcq_enqueue(&pc_queue, protocol);
     }
 
     // Wait for all threads to finish

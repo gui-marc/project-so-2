@@ -4,7 +4,7 @@
 #ifndef __PROTOCOLS__
 #define __PROTOCOLS__
 
-#define MKFIFO_PERMS 640
+#define MKFIFO_PERMS 0640
 
 #define NAMED_PIPE_PATH_SIZE 256
 #define MESSAGE_SIZE 1024
@@ -55,8 +55,6 @@ typedef struct protocol_base_t {
 typedef struct protocol_t {
     struct protocol_base_t base;
 } protocol_t;
-
-// todo: turn into packed structures ( was giving errors )
 
 typedef struct request_protocol_t {
     struct protocol_base_t base;

@@ -2,9 +2,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "logging.h"
@@ -13,15 +12,15 @@
 
 void *listen_for_requests(void *queue) {
     while (true) {
-        char *protocol = (char *)pcq_dequeue((pc_queue_t *)queue);
-        u_int8_t code = (u_int8_t)protocol[0] - '0';
+        protocol_t *protocol = (protocol_t *)pcq_dequeue((pc_queue_t *)queue);
+        uint8_t code = protocol->base.code;
         parse_request(code, protocol);
         free(protocol);
     }
     return NULL;
 }
 
-void parse_request(u_int8_t request_code, void *protocol) {
+void parse_request(uint8_t request_code, protocol_t *protocol) {
     switch (request_code) {
     case CODE_REGISTER_PUBLISHER:
         register_publisher(protocol);
@@ -44,27 +43,27 @@ void parse_request(u_int8_t request_code, void *protocol) {
     }
 }
 
-void register_publisher(void *protocol) {
+void register_publisher(protocol_t *protocol) {
     (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void register_subscriber(void *protocol) {
+void register_subscriber(protocol_t *protocol) {
     (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void create_box(void *protocol) {
+void create_box(protocol_t *protocol) {
     (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void remove_box(void *protocol) {
+void remove_box(protocol_t *protocol) {
     (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void list_boxes(void *protocol) {
+void list_boxes(protocol_t *protocol) {
     (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
