@@ -8,7 +8,7 @@
 
 #define NPIPE_PATH_SIZE 256
 #define BOX_NAME_SIZE 32
-#define ERR_MSG_SIZE 1024
+#define MSG_SIZE 1024
 
 typedef enum codes_e {
     REGISTER_PUBLISHER = 1,
@@ -30,44 +30,44 @@ typedef enum codes_e {
  * Defines a base structure for all protocols.
  * All protocols must have the `code` attribute
  */
-typedef struct protocol_base_t {
-    uint8_t code;
-} protocol_base_t;
 
-typedef struct protocol_t {
-    struct protocol_base_t base;
-} protocol_t;
-
-typedef struct request_protocol_t {
-    struct protocol_base_t base;
+//Used for sub/pub register request
+typedef struct  __attribute__((__packed__)) basic_register_proto_t {
     char client_named_pipe_path[NPIPE_PATH_SIZE];
     char box_name[BOX_NAME_SIZE];
-} request_protocol_t;
+} basic_register_proto_t;
 
-typedef struct response_protocol_t {
-    struct protocol_base_t base;
+//All these protocol messages are the same
+#define register_pub_proto_t basic_register_proto_t
+#define register_sub_proto_t basic_register_proto_t
+#define create_box_proto_t basic_register_proto_t
+#define remove_box_proto_t basic_register_proto_t
+
+typedef struct  __attribute__((__packed__)) response_proto_t {
     int32_t return_code;
-    char error_message[ERR_MSG_SIZE];
-} response_protocol_t;
+    char error_msg[MSG_SIZE];
+} basic_response_proto_t;
 
-typedef struct list_boxes_request_protocol_t {
-    struct protocol_base_t base;
+#define create_box_response_proto_t basic_response_proto_t
+#define remove_box_response_proto_t basic_response_proto_t
+
+
+typedef struct list_boxes_request_proto_t {
     char client_named_pipe_path[NPIPE_PATH_SIZE];
-} list_boxes_request_protocol_t;
+} list_boxes_request_proto_t;
 
-typedef struct list_boxes_response_protocol_t {
-    struct protocol_base_t base;
+typedef struct list_boxes_response_proto_t {
     uint8_t last;
-    char box_name[32];
+    char box_name[BOX_NAME_SIZE];
     uint64_t box_size;
     uint64_t n_publishers;
     uint64_t n_subscribers;
-} list_boxes_response_protocol_t;
+} list_boxes_response_proto_t;
 
-typedef struct message_protocol_t {
-    struct protocol_base_t base;
-    char message[ERR_MSG_SIZE];
-} message_protocol_t;
+typedef struct basic_msg_proto_t {
+    char msg[MSG_SIZE]
+}
+
 
 /**
  * Creates a protocol string to register a publisher
