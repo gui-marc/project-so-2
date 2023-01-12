@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
     char *pipe_name = argv[2];
     char *box_name = argv[3];
 
-    ALWAYS_ASSERT(argc == 3, "Invalid usage");
+    ALWAYS_ASSERT(argc == 4, "Invalid usage");
 
     request_protocol_t *request =
         (request_protocol_t *)register_publisher_protocol(pipe_name, box_name);

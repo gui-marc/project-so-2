@@ -7,11 +7,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "betterassert.h"
 #include "fs/operations.h"
 #include "logging.h"
 #include "producer-consumer.h"
 #include "protocols.h"
 #include "requests.h"
+
+void *finish_reading(int fd, uint8_t request_code) {
+    void *buffer = NULL;
+    ssize_t res = -1;
+    switch (request_code) {
+    case REGISTER_PUBLISHER:
+    case REGISTER_SUBSCRIBER:
+    case CREATE_BOX_REQUEST:
+    case REMOVE_BOX_REQUEST:
+        buffer = malloc(sizeof(request_protocol_t) - sizeof(protocol_t));
+        res = read(fd, buffer, sizeof(request_protocol_t) - sizeof(protocol_t));
+        break;
+    case LIST_BOXES_REQUEST:
+        buffer =
+            malloc(sizeof(list_boxes_request_protocol_t) - sizeof(protocol_t));
+        res = read(fd, buffer,
+                   sizeof(list_boxes_request_protocol_t) - sizeof(protocol_t));
+        break;
+    default:
+        WARN("invalid protocol code\n");
+        break;
+    }
+    ALWAYS_ASSERT(res != -1, "Failed reading buffer");
+    return buffer;
+}
 
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
@@ -59,6 +85,11 @@ int main(int argc, char **argv) {
         ssize_t ret = read(rx, protocol, sizeof(protocol_t));
 
         printf("%d\n", protocol->base.code);
+
+        void *remaining = finish_reading(rx, protocol->base.code);
+
+        request_protocol_t *req = (request_protocol_t *)remaining;
+        printf("%s\n", req->box_name);
 
         if (ret == 0) {
             INFO("pipe closed\n");
