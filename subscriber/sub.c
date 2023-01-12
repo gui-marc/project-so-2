@@ -11,25 +11,29 @@
 #include "protocols.h"
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
+    if (argc != 4) {
         fprintf(stderr,
                 "usage: sub <register_pipe_name> <pipe_name> <box_name>\n");
     }
 
+    char *register_pipe_name = argv[1];
+    char *pipe_name = argv[2];
+    char *box_name = argv[3];
+
     ALWAYS_ASSERT(argc == 3, "Invalid usage");
 
     request_protocol_t *request =
-        (request_protocol_t *)register_subscriber_protocol(argv[1], argv[2]);
+        (request_protocol_t *)register_subscriber_protocol(pipe_name, box_name);
 
-    ALWAYS_ASSERT(strcmp(argv[1], request->client_named_pipe_path) == 0,
+    ALWAYS_ASSERT(strcmp(pipe_name, request->client_named_pipe_path) == 0,
                   "error while reading name");
 
-    ALWAYS_ASSERT(strcmp(argv[2], request->box_name) == 0,
+    ALWAYS_ASSERT(strcmp(box_name, request->box_name) == 0,
                   "error while reading box_name");
 
-    printf("client_named_pipe: %s\n", request->client_named_pipe_path);
+    DEBUG("client_named_pipe: %s\n", request->client_named_pipe_path);
 
-    int wx = open(request->client_named_pipe_path, O_WRONLY);
+    int wx = open(register_pipe_name, O_WRONLY);
     ALWAYS_ASSERT(wx != -1, "Failed to open fifo");
 
     ssize_t res = write(wx, request, sizeof(request_protocol_t));
