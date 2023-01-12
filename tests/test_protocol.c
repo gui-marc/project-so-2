@@ -25,11 +25,11 @@ int main() {
 
     // All must have the code property
     uint8_t register_publisher_code = register_publisher->base.code;
-    ALWAYS_ASSERT(register_publisher_code == CODE_REGISTER_PUBLISHER, "code");
+    ALWAYS_ASSERT(register_publisher_code == REGISTER_PUBLISHER, "code");
     uint8_t register_subscriber_code = register_subscriber->base.code;
-    ALWAYS_ASSERT(register_subscriber_code == CODE_REGISTER_SUBSCRIBER, "code");
+    ALWAYS_ASSERT(register_subscriber_code == REGISTER_SUBSCRIBER, "code");
     uint8_t create_box_req_code = create_box_req->base.code;
-    ALWAYS_ASSERT(create_box_req_code == CODE_CREATE_BOX_REQUEST, "code");
+    ALWAYS_ASSERT(create_box_req_code == CREATE_BOX_REQUEST, "code");
     uint8_t create_box_res_code = create_box_res->base.code;
-    ALWAYS_ASSERT(create_box_res_code == CODE_CREATE_BOX_RESPONSE, "code");
+    ALWAYS_ASSERT(create_box_res_code == CREATE_BOX_RESPONSE, "code");
 }

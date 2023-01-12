@@ -73,41 +73,41 @@ void *response_protocol(uint8_t code, int32_t return_code,
     return p;
 }
 
-void *register_publisher_protocol(const char *client_named_pipe_path,
-                                  const char *box_name) {
+const void *register_publisher_protocol(const char *client_named_pipe_path,
+                                        const char *box_name) {
     return request_protocol(REGISTER_PUBLISHER, client_named_pipe_path,
                             box_name);
 }
 
-void *register_subscriber_protocol(const char *client_named_pipe_path,
-                                   const char *box_name) {
+const void *register_subscriber_protocol(const char *client_named_pipe_path,
+                                         const char *box_name) {
     return request_protocol(REGISTER_SUBSCRIBER, client_named_pipe_path,
                             box_name);
 }
 
-void *create_box_request_protocol(const char *client_named_pipe_path,
-                                  const char *box_name) {
+const void *create_box_request_protocol(const char *client_named_pipe_path,
+                                        const char *box_name) {
     return request_protocol(CREATE_BOX_REQUEST, client_named_pipe_path,
                             box_name);
 }
 
-void *create_box_response_protocol(int32_t return_code,
-                                   const char *error_message) {
+const void *create_box_response_protocol(int32_t return_code,
+                                         const char *error_message) {
     return response_protocol(CREATE_BOX_RESPONSE, return_code, error_message);
 }
 
-void *remove_box_request_protocol(const char *client_named_pipe_path,
-                                  const char *box_name) {
+const void *remove_box_request_protocol(const char *client_named_pipe_path,
+                                        const char *box_name) {
     return request_protocol(REMOVE_BOX_REQUEST, client_named_pipe_path,
                             box_name);
 }
 
-void *remove_box_response_protocol(const int32_t return_code,
-                                   const char *error_message) {
+const void *remove_box_response_protocol(const int32_t return_code,
+                                         const char *error_message) {
     return response_protocol(REMOVE_BOX_RESPONSE, return_code, error_message);
 }
 
-void *list_boxes_request_protocol(const char *client_named_pipe_path) {
+const void *list_boxes_request_protocol(const char *client_named_pipe_path) {
     list_boxes_request_protocol_t *p =
         malloc(sizeof(list_boxes_request_protocol_t));
     p->base.code = LIST_BOXES_REQUEST;
@@ -115,10 +115,11 @@ void *list_boxes_request_protocol(const char *client_named_pipe_path) {
     return p;
 }
 
-void *list_boxes_response_protocol(const uint8_t last, const char *box_name,
-                                   const uint64_t box_size,
-                                   const uint64_t n_publishers,
-                                   const uint64_t n_subscribers) {
+const void *list_boxes_response_protocol(const uint8_t last,
+                                         const char *box_name,
+                                         const uint64_t box_size,
+                                         const uint64_t n_publishers,
+                                         const uint64_t n_subscribers) {
     list_boxes_response_protocol_t *p =
         malloc(sizeof(list_boxes_response_protocol_t));
     p->base.code = LIST_BOXES_RESPONSE;
@@ -130,14 +131,14 @@ void *list_boxes_response_protocol(const uint8_t last, const char *box_name,
     return p;
 }
 
-void *publisher_message_protocol(const char *message) {
+const void *publisher_message_protocol(const char *message) {
     message_protocol_t *p = malloc(sizeof(message_protocol_t));
     p->base.code = PUBLISHER_MESSAGE;
     strcpy(p->message, message);
     return p;
 }
 
-void *subscriber_message_protocol(const char *message) {
+const void *subscriber_message_protocol(const char *message) {
     message_protocol_t *p = malloc(sizeof(message_protocol_t));
     p->base.code = SUBSCRIBER_MESSAGE;
     strcpy(p->message, message);
