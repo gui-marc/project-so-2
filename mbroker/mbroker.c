@@ -6,13 +6,26 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#include <signal.h>
+#include "betterassert.h"
 #include "fs/operations.h"
 #include "logging.h"
 #include "producer-consumer.h"
 #include "requests.h"
 
 #define MAX_PROTOCOL_SIZE 2048
+
+//Cleanly destroys mbroker process.
+//Triggered by SIGINT signal.
+void sigint_handler() {
+    //TODO:
+    //tfs_destroy
+    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS");
+    //Destroy workers
+    //Destroy queue
+    //Print nº of received messages
+
+}
 
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
@@ -23,6 +36,13 @@ int main(int argc, char **argv) {
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
+
+    //Bootstrap tfs file system
+    ALWAYS_ASSERT(tfs_init(NULL) != -1,
+     "Failed to initialize TFS");
+
+    //Redefine SIGINT treatment
+    signal(SIGINT, sigint_handler);
 
     // producer-consumer queue
     pc_queue_t pc_queue;
