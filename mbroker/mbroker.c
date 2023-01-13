@@ -1,26 +1,24 @@
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <signal.h>
 #include "betterassert.h"
 #include "fs/operations.h"
 #include "logging.h"
 #include "producer-consumer.h"
 #include "requests.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define MAX_PROTOCOL_SIZE 2048
 
 uint8_t sigint_called = 0;
 
-void sigint_handler() {
-    sigint_called = 1;
-}
+void sigint_handler() { sigint_called = 1; }
 
 int main(int argc, char **argv) {
     set_log_level(LOG_VERBOSE); // TODO: Remove
@@ -33,11 +31,10 @@ int main(int argc, char **argv) {
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
 
-    //Bootstrap tfs file system
-    ALWAYS_ASSERT(tfs_init(NULL) != -1,
-     "Failed to initialize TFS");
+    // Bootstrap tfs file system
+    ALWAYS_ASSERT(tfs_init(NULL) != -1, "Failed to initialize TFS");
 
-    //Redefine SIGINT treatment
+    // Redefine SIGINT treatment
     signal(SIGINT, sigint_handler);
 
     // producer-consumer queue
@@ -92,7 +89,6 @@ int main(int argc, char **argv) {
     // Closes the register pipe
     close(rx);
 
-
     // Removes the pipe
     if (remove(register_pipe_name) != 0) {
         PANIC("failed to remove named pipe: %s\n", register_pipe_name);
@@ -101,7 +97,6 @@ int main(int argc, char **argv) {
     // Destroys the queue
     pcq_destroy(&pc_queue);
 
-    //Destroys TFS
-    ALWAYS_ASSERT(tfs_destroy() != -1,
-     "Failed to destroy TFS");
+    // Destroys TFS
+    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS");
 }
