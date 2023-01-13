@@ -7,8 +7,8 @@
 #include <unistd.h>
 
 #include "betterassert.h"
+#include "fs/operations.h"
 #include "logging.h"
-#include "operations.h"
 #include "protocols.h"
 #include "string.h"
 
@@ -37,7 +37,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
     size_t curr_index = 0;
     // Array for storing responses
-    const list_boxes_response_proto_t **responses =
+    list_boxes_response_proto_t **responses =
         calloc(tfs_default_params().max_inode_count,
                sizeof(list_boxes_response_proto_t));
 
@@ -46,13 +46,16 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
     // Breaks in the last box or if there was an error in the server side
     while (1) {
-        uint8_t opcode = 0;
-        ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
+        // temporary int opcode
+        int t_opcode = 0;
+        ssize_t rs = read(rx, &t_opcode, sizeof(uint8_t));
 
-        if (opcode == EOF) {
+        if (t_opcode == EOF) {
             WARN("Error in the server side");
             break;
         }
+
+        uint8_t opcode = (uint8_t)t_opcode;
 
         ALWAYS_ASSERT(opcode == LIST_BOXES_RESPONSE, "Received invalid opcode");
         ALWAYS_ASSERT(rs == sizeof(uint8_t), "Failed to read op code");
