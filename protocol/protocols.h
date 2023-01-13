@@ -8,6 +8,7 @@
 
 #define NPIPE_PATH_SIZE 256
 #define BOX_NAME_SIZE 32
+#define MAX_FILE_NAME (40)
 #define MSG_SIZE 1024
 
 typedef enum codes_e {
