@@ -47,8 +47,26 @@ void parse_request(queue_obj_t *obj) {
 }
 
 void register_publisher(void *protocol) {
-    (void)protocol;
-    WARN("not implemented\n"); // Todo: implement me
+    register_pub_proto_t *request = (register_pub_proto_t *)protocol;
+
+    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
+    ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
+
+    int fd = tfs_open(request->box_name, 0);
+    char metadata_filename[MAX_FILE_NAME];
+
+    snprintf(metadata_filename, MAX_FILE_NAME, "%s.meta", request->box_name);
+    int metadata_fd = tfs_open(metadata_filename, 0);
+    if (fd == -1 || metadata_fd == -1) {
+        /*ALWAYS_ASSERT(write(pipe_fd, &EOF, sizeof(EOF)) == sizeof(EOF),
+ "Failed to terminate subscriber pipe!");*/
+        // close_pipe(pipe_fd);
+        close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
+        tfs_close(fd);
+        tfs_close(metadata_fd);
+        free(request);
+        return;
+    }
 }
 
 void register_subscriber(void *protocol) {
@@ -78,12 +96,16 @@ void create_box(void *protocol) {
     // Actually create the new file for the box
     fd = tfs_open(request->box_name, TFS_O_CREAT);
 
-    // Metadata of the current inbox (Stores current publisher and subscribers)
-    // Max filename from TFS is 40 (config.h), len(BOX_NAME_SIZE + ".meta") <
-    // 40, should be okay
-    char metadata_filename[BOX_NAME_SIZE + 5];
-    sprintf(metadata_filename, "%s.meta", request->box_name);
+    /*
+    Metadata of the current inbox (Stores current publisher and subscribers)
+     Max filename from TFS is 40 (config.h),
+     (len(BOX_NAME_SIZE + ".meta\0") = 38) <
+     40, should be okay
+    */
 
+    char metadata_filename[MAX_FILE_NAME];
+
+    snprintf(metadata_filename, MAX_FILE_NAME, "%s.meta", request->box_name);
     int metadata_fd = tfs_open(metadata_filename, TFS_O_CREAT);
     if (fd == -1 || metadata_fd == -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
