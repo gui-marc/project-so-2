@@ -77,14 +77,13 @@ int main(int argc, char **argv) {
 
     // Listen to events in the register pipe
     while (sigint_called == 0) {
-        uint8_t prot_code;
+        uint8_t prot_code = 0;
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
-
         DEBUG("Read proto code %u", prot_code);
 
         if (ret == 0) {
             INFO("pipe closed\n");
-            break; // Stop listening
+            continue;
         } else if (ret == -1) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
@@ -95,6 +94,8 @@ int main(int argc, char **argv) {
 
         obj->opcode = prot_code;
         obj->protocol = protocol;
+
+        DEBUG("enqueue request of protocol: %u", obj->opcode);
 
         pcq_enqueue(&pc_queue, obj);
     }

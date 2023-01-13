@@ -55,6 +55,7 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
 }
 
 void *parse_protocol(const int rx, const uint8_t opcode) {
+    DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
     void *protocol = malloc(proto_sz);
     ssize_t sz = read(rx, protocol, proto_sz);

@@ -49,7 +49,7 @@ void parse_request(queue_obj_t *obj) {
 void register_publisher(void *protocol) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
 
-    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
+    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY | O_CREAT);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, 0);
@@ -64,7 +64,6 @@ void register_publisher(void *protocol) {
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
         tfs_close(metadata_fd);
-        free(request);
         return;
     }
 }
