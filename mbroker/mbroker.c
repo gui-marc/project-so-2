@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -15,19 +16,14 @@
 
 #define MAX_PROTOCOL_SIZE 2048
 
-//Cleanly destroys mbroker process.
-//Triggered by SIGINT signal.
-void sigint_handler() {
-    //TODO:
-    //tfs_destroy
-    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS");
-    //Destroy workers
-    //Destroy queue
-    //Print nº of received messages
+uint8_t sigint_called = 0;
 
+void sigint_handler() {
+    sigint_called = 1;
 }
 
 int main(int argc, char **argv) {
+    set_log_level(LOG_VERBOSE); // TODO: Remove
     // Must have at least 3 arguments
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
@@ -74,7 +70,7 @@ int main(int argc, char **argv) {
     }
 
     // Listen to events in the register pipe
-    while (true) {
+    while (sigint_called == 0) {
         char buffer[MAX_PROTOCOL_SIZE];
         ssize_t ret = read(rx, buffer, MAX_PROTOCOL_SIZE);
         if (ret == 0) {
@@ -86,6 +82,7 @@ int main(int argc, char **argv) {
 
         pcq_enqueue(&pc_queue, buffer);
     }
+    DEBUG("Caught SIGINT signal, cleaning up...");
 
     // Wait for all threads to finish
     for (int i = 0; i < max_sessions; i++) {
@@ -95,6 +92,7 @@ int main(int argc, char **argv) {
     // Closes the register pipe
     close(rx);
 
+
     // Removes the pipe
     if (remove(register_pipe_name) != 0) {
         PANIC("failed to remove named pipe: %s\n", register_pipe_name);
@@ -102,4 +100,8 @@ int main(int argc, char **argv) {
 
     // Destroys the queue
     pcq_destroy(&pc_queue);
+
+    //Destroys TFS
+    ALWAYS_ASSERT(tfs_destroy() != -1,
+     "Failed to destroy TFS");
 }
