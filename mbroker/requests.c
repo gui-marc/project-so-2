@@ -7,37 +7,36 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 void *listen_for_requests(void *queue) {
     while (true) {
-        char *protocol = (char *)pcq_dequeue((pc_queue_t *)queue);
-        u_int8_t code = (u_int8_t)protocol[0] - '0';
-        parse_request(code, protocol);
-        free(protocol);
+        queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
+        parse_request(obj);
+        free(obj->protocol);
+        free(obj);
     }
     return NULL;
 }
 
-void parse_request(u_int8_t request_code, void *protocol) {
-    switch (request_code) {
+void parse_request(queue_obj_t *obj) {
+    switch (obj->opcode) {
     case REGISTER_PUBLISHER:
-        register_publisher(protocol);
+        register_publisher(obj->protocol);
         break;
     case REGISTER_SUBSCRIBER:
-        register_subscriber(protocol);
+        register_subscriber(obj->protocol);
         break;
     case CREATE_BOX_REQUEST:
-        create_box(protocol);
+        create_box(obj->protocol);
         break;
     case REMOVE_BOX_REQUEST:
-        remove_box(protocol);
+        remove_box(obj->protocol);
         break;
     case LIST_BOXES_REQUEST:
-        list_boxes(protocol);
+        list_boxes(obj->protocol);
         break;
     default:
         WARN("invalid protocol code\n");
@@ -45,13 +44,13 @@ void parse_request(u_int8_t request_code, void *protocol) {
     }
 }
 
-void register_publisher(void *protocol) {
-    (void)protocol;
+void register_publisher(queue_obj_t *obj) {
+    (void)obj;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void register_subscriber(void *protocol) {
-    (void)protocol;
+void register_subscriber(queue_obj_t *obj) {
+    (void)obj;
     WARN("not implemented\n"); // Todo: implement me
 }
 
@@ -82,12 +81,12 @@ void create_box(void *protocol) {
     send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
 }
 
-void remove_box(void *protocol) {
-    (void)protocol;
+void remove_box(queue_obj_t *obj) {
+    (void)obj;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void list_boxes(void *protocol) {
-    (void)protocol;
+void list_boxes(queue_obj_t *obj) {
+    (void)obj;
     WARN("not implemented\n"); // Todo: implement me
 }

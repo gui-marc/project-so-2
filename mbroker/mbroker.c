@@ -14,7 +14,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAX_PROTOCOL_SIZE 2048
+#include "fs/operations.h"
+#include "logging.h"
+#include "producer-consumer.h"
+#include "protocols.h"
+#include "requests.h"
 
 uint8_t sigint_called = 0;
 
@@ -50,7 +54,7 @@ int main(int argc, char **argv) {
     }
 
     // Create named pipe (fifo)
-    if (mkfifo(register_pipe_name, 0640) != 0) {
+    if (mkfifo(register_pipe_name, MKFIFO_PERMS) != 0) {
         PANIC("mkfifo failed: %s\n", register_pipe_name);
     }
 
@@ -64,12 +68,14 @@ int main(int argc, char **argv) {
     int rx = open(register_pipe_name, O_RDONLY);
     if (rx == -1) {
         PANIC("failed to open register pipe: %s\n", register_pipe_name);
+        remove(register_pipe_name);
     }
 
     // Listen to events in the register pipe
     while (sigint_called == 0) {
-        char buffer[MAX_PROTOCOL_SIZE];
-        ssize_t ret = read(rx, buffer, MAX_PROTOCOL_SIZE);
+        uint8_t prot_code;
+        ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
+
         if (ret == 0) {
             INFO("pipe closed\n");
             break; // Stop listening
@@ -77,7 +83,15 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        pcq_enqueue(&pc_queue, buffer);
+        void *protocol = malloc(proto_size(prot_code));
+        ret = read(rx, protocol, proto_size(prot_code));
+
+        queue_obj_t *obj = malloc(sizeof(queue_obj_t));
+
+        obj->opcode = prot_code;
+        obj->protocol = protocol;
+
+        pcq_enqueue(&pc_queue, obj);
     }
     DEBUG("Caught SIGINT signal, cleaning up...");
 
