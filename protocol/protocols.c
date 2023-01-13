@@ -40,10 +40,18 @@ void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
                   "Failed to create client named pipe.");
 }
 
-int open_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
-    int fd = open(npipe_path, O_WRONLY);
-    ALWAYS_ASSERT(fd != -1, "Failed to open client named pipe")
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
+    int fd = open(npipe_path, _flag);
+    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe");
     return fd;
+}
+
+void *parse_protocol(const int rx, const uint8_t opcode) {
+    size_t proto_sz = proto_size(opcode);
+    void *protocol = malloc(proto_sz);
+    ssize_t sz = read(rx, protocol, proto_sz);
+    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol");
+    return protocol;
 }
 
 void *request_proto(const char *client_named_pipe_path, const char *box_name) {
@@ -60,17 +68,17 @@ void *response_proto(int32_t return_code, const char *error_message) {
     return p;
 }
 
-const void *list_boxes_request_proto(const char *client_named_pipe_path) {
+void *list_boxes_request_proto(const char *client_named_pipe_path) {
     list_boxes_request_proto_t *p =
         calloc(1, sizeof(list_boxes_request_proto_t));
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
 
-const void *list_boxes_response_proto(const uint8_t last, const char *box_name,
-                                      const uint64_t box_size,
-                                      const uint64_t n_publishers,
-                                      const uint64_t n_subscribers) {
+void *list_boxes_response_proto(const uint8_t last, const char *box_name,
+                                const uint64_t box_size,
+                                const uint64_t n_publishers,
+                                const uint64_t n_subscribers) {
     list_boxes_response_proto_t *p =
         malloc(sizeof(list_boxes_response_proto_t));
     p->last = last;
