@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 void *listen_for_requests(void *queue) {
     set_log_level(LOG_VERBOSE);
@@ -57,15 +58,37 @@ void register_publisher(void *protocol) {
 
     snprintf(metadata_filename, MAX_FILE_NAME, "%s.meta", request->box_name);
     int metadata_fd = tfs_open(metadata_filename, 0);
+
     if (fd == -1 || metadata_fd == -1) {
-        /*ALWAYS_ASSERT(write(pipe_fd, &EOF, sizeof(EOF)) == sizeof(EOF),
- "Failed to terminate subscriber pipe!");*/
-        // close_pipe(pipe_fd);
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
         tfs_close(metadata_fd);
         return;
     }
+    //Check if there's a publisher already
+    char cur_publisher[NPIPE_PATH_SIZE];
+    tfs_read(metadata_fd, &cur_publisher, NPIPE_PATH_SIZE);
+    char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
+    //There's a publisher already - exit
+    if (!STR_MATCH(cur_publisher, null_publisher)) {
+        close(pipe_fd);
+        tfs_close(fd);
+        tfs_close(metadata_fd);
+        return;
+    }
+    //There's no publisher, continue
+    //tfs_write(metadata_fd, )
+    //TODO RG: look here
+
+
+    
+    //if (STR_MATCH(cur_publisher))
+    /*TODO these checks:
+    if tfs_write fails;
+    if a publisher already exists;
+
+    */
+
 }
 
 void register_subscriber(void *protocol) {
@@ -110,6 +133,11 @@ void create_box(void *protocol) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
         tfs_close(fd);
         tfs_close(metadata_fd);
+    }
+    else {
+        //Initialize the publisher string to \0.
+        char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
+        tfs_write(metadata_fd, null_publisher, NPIPE_PATH_SIZE);
     }
     send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
 }

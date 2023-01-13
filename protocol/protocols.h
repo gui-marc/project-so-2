@@ -4,6 +4,9 @@
 #ifndef __PROTOCOLS__
 #define __PROTOCOLS__
 
+
+#define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
+
 #define MKFIFO_PERMS 0640
 
 #define NPIPE_PATH_SIZE 256
