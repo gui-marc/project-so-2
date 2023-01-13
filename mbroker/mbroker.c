@@ -81,8 +81,8 @@ int main(int argc, char **argv) {
 
     // Listen to events in the register pipe
     while (true) {
-        protocol_t *protocol = malloc(sizeof(protocol_t));
-        ssize_t ret = read(rx, protocol, sizeof(protocol_t));
+        uint8_t prot_code;
+        ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
 
         printf("%d\n", protocol->base.code);
 
@@ -98,7 +98,15 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        pcq_enqueue(&pc_queue, protocol);
+        void *protocol = malloc(proto_size(prot_code));
+        ret = read(rx, protocol, proto_size(prot_code));
+
+        queue_obj_t *obj = malloc(sizeof(queue_obj_t));
+
+        obj->opcode = prot_code;
+        obj->protocol = protocol;
+
+        pcq_enqueue(&pc_queue, obj);
     }
 
     // Wait for all threads to finish

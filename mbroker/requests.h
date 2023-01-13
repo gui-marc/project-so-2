@@ -17,41 +17,41 @@ void *listen_for_requests(void *queue);
  * @param request_code the code of the request @link(protocols.h)
  * @param protocol the string containing the other parameters in the request
  */
-void parse_request(uint8_t request_code, protocol_t *protocol);
+void parse_request(queue_obj_t *obj);
 
 /**
  * Register a publisher
  *
  * @param protocol the string containing the other parameters in the request
  */
-void register_publisher(protocol_t *protocol);
+void register_publisher(queue_obj_t *obj);
 
 /**
  * Register a subscriber
  *
  * @param protocol the string containing the other parameters in the request
  */
-void register_subscriber(protocol_t *protocol);
+void register_subscriber(queue_obj_t *obj);
 
 /**
  * Creates a message box in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void create_box(protocol_t *protocol);
+void create_box(queue_obj_t *obj);
 
 /**
  * Removes a message box in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void remove_box(protocol_t *protocol);
+void remove_box(queue_obj_t *obj);
 
 /**
  * List all message boxes in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void list_boxes(protocol_t *protocol);
+void list_boxes(queue_obj_t *obj);
 
 #endif
