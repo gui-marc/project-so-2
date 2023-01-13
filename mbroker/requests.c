@@ -44,13 +44,13 @@ void parse_request(queue_obj_t *obj) {
     }
 }
 
-void register_publisher(queue_obj_t *obj) {
-    (void)obj;
+void register_publisher(void *protocol) {
+    (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void register_subscriber(queue_obj_t *obj) {
-    (void)obj;
+void register_subscriber(void *protocol) {
+    (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
@@ -75,18 +75,27 @@ void create_box(void *protocol) {
     }
     // Actually create the new file for the box
     fd = tfs_open(request->box_name, TFS_O_CREAT);
-    if (fd == -1) {
+
+    // Metadata of the current inbox (Stores current publisher and subscribers)
+    // Max filename from TFS is 40 (config.h), len(BOX_NAME_SIZE + ".meta") <
+    // 40, should be okay
+    char metadata_filename[BOX_NAME_SIZE] =
+        sprintf("%s.meta", request->box_name);
+    int metadata_fd = tfs_open(metadata_filename, TFS_O_CREAT);
+    if (fd == -1 || metadata_fd == -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
+        tfs_close(fd);
+        tfs_close(metadata_fd);
     }
     send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
 }
 
-void remove_box(queue_obj_t *obj) {
-    (void)obj;
+void remove_box(void *protocol) {
+    (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }
 
-void list_boxes(queue_obj_t *obj) {
-    (void)obj;
+void list_boxes(void *protocol) {
+    (void)protocol;
     WARN("not implemented\n"); // Todo: implement me
 }

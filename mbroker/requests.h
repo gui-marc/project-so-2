@@ -24,34 +24,34 @@ void parse_request(queue_obj_t *obj);
  *
  * @param protocol the string containing the other parameters in the request
  */
-void register_publisher(queue_obj_t *obj);
+void register_publisher(void *protocol);
 
 /**
  * Register a subscriber
  *
  * @param protocol the string containing the other parameters in the request
  */
-void register_subscriber(queue_obj_t *obj);
+void register_subscriber(void *protocol);
 
 /**
  * Creates a message box in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void create_box(queue_obj_t *obj);
+void create_box(void *protocol);
 
 /**
  * Removes a message box in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void remove_box(queue_obj_t *obj);
+void remove_box(void *protocol);
 
 /**
  * List all message boxes in the TFS
  *
  * @param protocol the string containing the other parameters in the request
  */
-void list_boxes(queue_obj_t *obj);
+void list_boxes(void *protocol);
 
 #endif
