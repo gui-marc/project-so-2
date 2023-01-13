@@ -2,12 +2,16 @@
 #define __PRODUCER_CONSUMER_H__
 
 #include <pthread.h>
+#include <stdint.h>
+typedef struct queue_obj_t {
+    uint8_t opcode;
+    void *protocol;
+} queue_obj_t;
 
 // IMPORTANT: do not change anything in this file
 //
 // This API will be used separately to test your producer consumer
 // implementation
-
 typedef struct {
     void **pcq_buffer;
     size_t pcq_capacity;
