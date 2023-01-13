@@ -5,7 +5,7 @@
 #include <stdint.h>
 typedef struct queue_obj_t {
     uint8_t opcode;
-    void * protocol;
+    void *protocol;
 } queue_obj_t;
 
 // IMPORTANT: do not change anything in this file

@@ -24,32 +24,38 @@ typedef enum codes_e {
 } CODES;
 
 /**
+ * Error Messages
+ */
+#define ERR_BOX_NOT_FOUND "Box not found."
+#define ERR_BOX_ALREADY_EXISTS "Box already exists."
+#define ERR_BOX_CREATION "An error ocurred while creating the box."
+
+/**
  * Protocol
  *
  * Defines a base structure for all protocols.
  * All protocols must have the `code` attribute
  */
 
-//Used for sub/pub register request
-typedef struct  __attribute__((__packed__)) request_proto_t {
+// Used for sub/pub register request
+typedef struct __attribute__((__packed__)) request_proto_t {
     char client_named_pipe_path[NPIPE_PATH_SIZE];
     char box_name[BOX_NAME_SIZE];
 } request_proto_t;
 
-//All these protocol messages are the same
+// All these protocol messages are the same
 #define register_pub_proto_t request_proto_t
 #define register_sub_proto_t request_proto_t
 #define create_box_proto_t request_proto_t
 #define remove_box_proto_t request_proto_t
 
-typedef struct  __attribute__((__packed__)) response_proto_t {
+typedef struct __attribute__((__packed__)) response_proto_t {
     int32_t return_code;
     char error_msg[MSG_SIZE];
 } response_proto_t;
 
 #define create_box_response_proto_t response_proto_t
 #define remove_box_response_proto_t response_proto_t
-
 
 typedef struct __attribute__((__packed__)) list_boxes_request_proto_t {
     char client_named_pipe_path[NPIPE_PATH_SIZE];
@@ -67,12 +73,17 @@ typedef struct __attribute__((__packed__)) basic_msg_proto_t {
     char msg[MSG_SIZE];
 } basic_msg_proto_t;
 
+uint8_t recv_opcode(const int fd);
 
-void *request_proto(const char *client_named_pipe_path,
-                       const char *box_name);
+void send_proto_string(const int fd, const uint8_t opcode, const void *proto);
 
-void *response_proto(int32_t return_code,
-                        const char *error_message);
+void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]);
+
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE]);
+
+void *request_proto(const char *client_named_pipe_path, const char *box_name);
+
+void *response_proto(int32_t return_code, const char *error_message);
 
 /**
  * Creates a protocol string to request a list of boxes
@@ -92,11 +103,10 @@ void *list_boxes_request_protocol(const char *client_named_pipe_path);
  * @param n_publishers publishers connected to the box
  * @param n_subscribers subscribers connected to the box
  */
-void *list_boxes_response_protocol(const uint8_t last,
-                                         const char *box_name,
-                                         const uint64_t box_size,
-                                         const uint64_t n_publishers,
-                                         const uint64_t n_subscribers);
+void *list_boxes_response_protocol(const uint8_t last, const char *box_name,
+                                   const uint64_t box_size,
+                                   const uint64_t n_publishers,
+                                   const uint64_t n_subscribers);
 
 /**
  * Creates a protocol string that the publisher and the subscriber uses
@@ -112,7 +122,6 @@ void *message_proto(const char *message);
  */
 size_t proto_size(uint8_t code);
 
-
-void send_proto_string(const int fd, const uint8_t opcode,const void *proto);
+void send_proto_string(const int fd, const uint8_t opcode, const void *proto);
 
 #endif
