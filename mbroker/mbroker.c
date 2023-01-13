@@ -9,7 +9,9 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -62,6 +64,7 @@ int main(int argc, char **argv) {
     // Create threads
     pthread_t threads[max_sessions];
     for (int i = 0; i < max_sessions; i++) {
+        DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, &pc_queue);
     }
 
@@ -76,6 +79,8 @@ int main(int argc, char **argv) {
     while (sigint_called == 0) {
         uint8_t prot_code;
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
+
+        DEBUG("Read proto code %u", prot_code);
 
         if (ret == 0) {
             INFO("pipe closed\n");

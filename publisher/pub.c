@@ -11,6 +11,7 @@
 #include "protocols.h"
 
 int main(int argc, char **argv) {
+    set_log_level(LOG_VERBOSE);
     if (argc != 4) {
         fprintf(stderr,
                 "usage: pub <register_pipe_name> <pipe_name> <box_name>\n");
@@ -36,6 +37,7 @@ int main(int argc, char **argv) {
     int wx = open(register_pipe_name, O_WRONLY);
     ALWAYS_ASSERT(wx != -1, "Failed to open fifo");
 
+    DEBUG("Sended register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(wx, REGISTER_PUBLISHER, request);
 
     return 0;

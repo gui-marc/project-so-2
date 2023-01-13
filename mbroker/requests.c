@@ -12,8 +12,10 @@
 #include <unistd.h>
 
 void *listen_for_requests(void *queue) {
+    set_log_level(LOG_VERBOSE);
     while (true) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
+        DEBUG("Dequeued object with code %u", obj->opcode);
         parse_request(obj);
         free(obj->protocol);
         free(obj);
@@ -62,7 +64,7 @@ void create_box(void *protocol) {
     ALWAYS_ASSERT(response != NULL, "Call to calloc failed.");
     response->return_code = REMOVE_BOX_RESPONSE;
 
-    int pipe_fd = open_pipe(request->client_named_pipe_path);
+    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
     // tfs_lookup isn't exposed in headers,
     //  so use tfs_open for this check
@@ -79,8 +81,9 @@ void create_box(void *protocol) {
     // Metadata of the current inbox (Stores current publisher and subscribers)
     // Max filename from TFS is 40 (config.h), len(BOX_NAME_SIZE + ".meta") <
     // 40, should be okay
-    char metadata_filename[BOX_NAME_SIZE] =
-        sprintf("%s.meta", request->box_name);
+    char metadata_filename[BOX_NAME_SIZE + 5];
+    sprintf(metadata_filename, "%s.meta", request->box_name);
+
     int metadata_fd = tfs_open(metadata_filename, TFS_O_CREAT);
     if (fd == -1 || metadata_fd == -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
