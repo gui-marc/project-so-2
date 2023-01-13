@@ -22,8 +22,8 @@ int main(int argc, char **argv) {
 
     ALWAYS_ASSERT(argc == 4, "Invalid usage");
 
-    request_protocol_t *request =
-        (request_protocol_t *)register_publisher_protocol(pipe_name, box_name);
+    request_proto_t *request =
+        (request_proto_t *)request_proto(pipe_name, box_name);
 
     ALWAYS_ASSERT(strcmp(pipe_name, request->client_named_pipe_path) == 0,
                   "error while reading name");
@@ -36,9 +36,7 @@ int main(int argc, char **argv) {
     int wx = open(register_pipe_name, O_WRONLY);
     ALWAYS_ASSERT(wx != -1, "Failed to open fifo");
 
-    ssize_t res = write(wx, request, sizeof(request_protocol_t));
-    ALWAYS_ASSERT(res == sizeof(request_protocol_t),
-                  "error while writing protocol");
+    send_proto_string(wx, REGISTER_PUBLISHER, request);
 
     return 0;
 }

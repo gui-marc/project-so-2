@@ -61,7 +61,7 @@ typedef struct __attribute__((__packed__)) list_boxes_request_proto_t {
     char client_named_pipe_path[NPIPE_PATH_SIZE];
 } list_boxes_request_proto_t;
 
-typedef struct list_boxes_response_proto_t {
+typedef struct __attribute__((__packed__)) list_boxes_response_proto_t {
     uint8_t last;
     char box_name[BOX_NAME_SIZE];
     uint64_t box_size;
@@ -79,7 +79,9 @@ void send_proto_string(const int fd, const uint8_t opcode, const void *proto);
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]);
 
-int open_pipe(const char npipe_path[NPIPE_PATH_SIZE]);
+void *parse_protocol(const int rx, const uint8_t opcode);
+
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flags);
 
 void *request_proto(const char *client_named_pipe_path, const char *box_name);
 
@@ -91,7 +93,7 @@ void *response_proto(int32_t return_code, const char *error_message);
  * @param client_named_pipe_path string (char[NPIPE_PATH_SIZE]) containing
  * the path to the fifo
  */
-void *list_boxes_request_protocol(const char *client_named_pipe_path);
+void *list_boxes_request_proto(const char *client_named_pipe_path);
 
 /**
  * Creates a protocol string to respond to a list_boxes_request
@@ -103,10 +105,10 @@ void *list_boxes_request_protocol(const char *client_named_pipe_path);
  * @param n_publishers publishers connected to the box
  * @param n_subscribers subscribers connected to the box
  */
-void *list_boxes_response_protocol(const uint8_t last, const char *box_name,
-                                   const uint64_t box_size,
-                                   const uint64_t n_publishers,
-                                   const uint64_t n_subscribers);
+void *list_boxes_response_proto(const uint8_t last, const char *box_name,
+                                const uint64_t box_size,
+                                const uint64_t n_publishers,
+                                const uint64_t n_subscribers);
 
 /**
  * Creates a protocol string that the publisher and the subscriber uses

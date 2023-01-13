@@ -14,31 +14,6 @@
 #include "protocols.h"
 #include "requests.h"
 
-void *finish_reading(int fd, uint8_t request_code) {
-    void *buffer = NULL;
-    ssize_t res = -1;
-    switch (request_code) {
-    case REGISTER_PUBLISHER:
-    case REGISTER_SUBSCRIBER:
-    case CREATE_BOX_REQUEST:
-    case REMOVE_BOX_REQUEST:
-        buffer = malloc(sizeof(request_protocol_t) - sizeof(protocol_t));
-        res = read(fd, buffer, sizeof(request_protocol_t) - sizeof(protocol_t));
-        break;
-    case LIST_BOXES_REQUEST:
-        buffer =
-            malloc(sizeof(list_boxes_request_protocol_t) - sizeof(protocol_t));
-        res = read(fd, buffer,
-                   sizeof(list_boxes_request_protocol_t) - sizeof(protocol_t));
-        break;
-    default:
-        WARN("invalid protocol code\n");
-        break;
-    }
-    ALWAYS_ASSERT(res != -1, "Failed reading buffer");
-    return buffer;
-}
-
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
     if (argc < 3) {
@@ -84,13 +59,6 @@ int main(int argc, char **argv) {
         uint8_t prot_code;
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
 
-        printf("%d\n", protocol->base.code);
-
-        void *remaining = finish_reading(rx, protocol->base.code);
-
-        request_protocol_t *req = (request_protocol_t *)remaining;
-        printf("%s\n", req->box_name);
-
         if (ret == 0) {
             INFO("pipe closed\n");
             break; // Stop listening
@@ -98,8 +66,7 @@ int main(int argc, char **argv) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
 
-        void *protocol = malloc(proto_size(prot_code));
-        ret = read(rx, protocol, proto_size(prot_code));
+        void *protocol = parse_protocol(rx, prot_code);
 
         queue_obj_t *obj = malloc(sizeof(queue_obj_t));
 
