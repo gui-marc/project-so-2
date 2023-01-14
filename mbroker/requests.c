@@ -12,6 +12,8 @@
 #include <string.h>
 #include <unistd.h>
 
+// Guarantees atomicity of checking if a publisher is attached to a box, and if
+// not, attach one to it.
 pthread_mutex_t tfs_ops = PTHREAD_MUTEX_INITIALIZER;
 
 void *listen_for_requests(void *queue) {
@@ -50,45 +52,76 @@ void parse_request(queue_obj_t *obj) {
 }
 
 void register_publisher(void *protocol) {
-
-    /*
-    Metadata of the current inbox (Stores current publisher and subscribers)
-     Max filename from TFS is 40 (config.h),
-     (len(BOX_NAME_SIZE + ".meta\0") = 38) <
-     40, should be okay
-
-        char metadata_filename[MAX_FILE_NAME];
-    snprintf(metadata_filename, MAX_FILE_NAME, "%s.pub", request->box_name);
-    */
-
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     // TODO: O_WRONLY | O_CREAT faz sentido sequer?
     int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
-    int fd = tfs_open(request->box_name, 0);
-    char metadata_filename[MAX_FILE_NAME];
-
-    snprintf(metadata_filename, MAX_FILE_NAME, "%s.meta", request->box_name);
-    int metadata_fd = tfs_open(metadata_filename, 0);
-
-    if (fd == -1 || metadata_fd == -1) {
+    int fd = tfs_open(request->box_name, TFS_O_APPEND);
+    /*
+    Meta-file for the box. If this file exists, then a publisher is registered
+    to it. Max filename from TFS is 40 (config.h), (len(BOX_NAME_SIZE +
+    ".pub\0") = 37) < 40, should be okay
+    */
+    char meta_filename[MAX_FILE_NAME];
+    snprintf(meta_filename, MAX_FILE_NAME, "%s.pub", request->box_name);
+    pthread_mutex_lock(&tfs_ops);
+    int meta_fd = tfs_open(meta_filename, 0);
+    // If we couldn't open the box for whatever reason, or the meta-file exists,
+    // exit.
+    if (fd == -1 || meta_fd != -1) {
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
-        tfs_close(metadata_fd);
+        tfs_close(meta_fd);
+        tfs_unlink(meta_filename);
+        pthread_mutex_unlock(&tfs_ops);
         return;
     }
-    // Check if there's a publisher already
-    char cur_publisher[NPIPE_PATH_SIZE];
-    tfs_read(metadata_fd, &cur_publisher, NPIPE_PATH_SIZE);
-    char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
-    // There's a publisher already - exit
-    if (!STR_MATCH(cur_publisher, null_publisher)) {
-        close(pipe_fd);
-        tfs_close(fd);
-        tfs_close(metadata_fd);
-        return;
+    // At this point, meta-file doesn't exist.
+    ALWAYS_ASSERT((meta_fd = tfs_open(meta_filename, TFS_O_CREAT)) != -1,
+                  "An error ocurred while creating meta-file for %s",
+                  request->box_name);
+    ALWAYS_ASSERT(tfs_close(meta_fd) == 0,
+                  "An error ocurred closing meta-file for %s",
+                  request->box_name);
+    pthread_mutex_unlock(&tfs_ops);
+
+    // Start receiving messages
+    // char *msg = calloc(MSG_SIZE, sizeof(char));
+    //  int bytes_read = -1;
+    uint8_t op;
+    publisher_msg_proto_t *pub_msg;
+    ssize_t written = -1;
+    size_t msg_len;
+    while (0) { // FIXME: Should check a variable! (Maybe create an array that a
+                // signal handler changes this thread's variable)
+        op = recv_opcode(pipe_fd);
+        if (op != PUBLISHER_MESSAGE) {
+            DEBUG("Received invalid opcode from publisher for box '%s'",
+                  request->box_name);
+            // Didn't expect this message: quit
+            break;
+        }
+        pub_msg = (publisher_msg_proto_t *)parse_protocol(pipe_fd, op);
+        DEBUG("Received this message from publisher of '%s': '%s'",
+              request->box_name, pub_msg->msg);
+        written = tfs_write(fd, pub_msg->msg,
+                            strlen(pub_msg->msg) + 1); //+1 to include \0
+        if (written != msg_len) {
+            // We don't explicitly disallow new publishers to connect after this
+            // one quits, But subsequent publishers will all fail here and won't
+            // write anything else.
+            DEBUG("Couldn't write entire message to TFS. Quitting.")
+            break;
+        }
     }
+    DEBUG("Cleaning up thread for publisher of '%s'", request->box_name);
+    close(pipe_fd);
+    tfs_close(fd);
+    ALWAYS_ASSERT(tfs_unlink(meta_filename) == 0,
+                  "Failed to delete meta-file while removing publisher");
+    DEBUG("Thread for publisher of '%s' finished", request->box_name);
+    return;
     // There's no publisher, continue
     // tfs_write(metadata_fd, )
     // TODO RG: look here
