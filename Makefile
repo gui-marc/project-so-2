@@ -15,6 +15,7 @@ INCLUDES = $(addprefix -I, $(INCLUDE_DIRS))
 SOURCES  := $(wildcard */*.c)
 HEADERS  := $(wildcard */*.h)
 OBJECTS  := $(SOURCES:.c=.o)
+PIPES := $(wildcard */*.pipe)
 
 TARGET_EXECS := mbroker/mbroker manager/manager publisher/pub subscriber/sub
 
@@ -96,7 +97,7 @@ publisher/pub: $(PUBLISHER_OBJECTS) $(PROTOCOL_OBJECTS) $(UTILS_OBJECTS)
 subscriber/sub: $(SUBSCRIBER_OBJECTS) $(PROTOCOL_OBJECTS) $(UTILS_OBJECTS)
 
 clean:
-	rm -f $(OBJECTS) $(TARGET_EXECS)
+	rm -f $(OBJECTS) $(TARGET_EXECS) $(PIPES)
 
 
 # This generates a dependency file, with some default dependencies gathered from the include tree
