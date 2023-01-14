@@ -12,7 +12,8 @@
 typedef struct box_metadata_t {
     char name[BOX_NAME_SIZE];
 
-    int messages_written;
+    size_t total_message_size;
+    pthread_mutex_t total_message_size_lock;
 
     pthread_mutex_t read_condvar_lock;
     pthread_cond_t read_condvar;
