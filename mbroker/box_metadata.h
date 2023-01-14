@@ -3,6 +3,7 @@
 
 #include "../protocol/protocols.h"
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 /**
@@ -16,11 +17,11 @@ typedef struct box_metadata_t {
     pthread_mutex_t read_condvar_lock;
     pthread_cond_t read_condvar;
 
-    int publishers_count;
-    pthread_mutex_t publishers_count_lock;
+    int publisher_idx;
+    pthread_mutex_t publisher_idx_lock;
 
-    int *publishers;
-    pthread_mutex_t publishers_lock;
+    bool has_publisher;
+    pthread_mutex_t has_publisher_lock;
 
     int subscribers_count;
     pthread_mutex_t subscribers_count_lock;
