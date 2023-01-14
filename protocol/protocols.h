@@ -10,6 +10,9 @@
 
 #define NPIPE_PATH_SIZE 256
 #define BOX_NAME_SIZE 32
+
+// Exported from fs/config.h, since we don't (and shouldn't) have access to this
+// header. Should be kept in sync with its equivalent there.
 #define MAX_FILE_NAME (40)
 #define MSG_SIZE 1024
 
@@ -87,6 +90,9 @@ typedef struct __attribute__((__packed__)) list_boxes_response_proto_t {
 typedef struct __attribute__((__packed__)) basic_msg_proto_t {
     char msg[MSG_SIZE];
 } basic_msg_proto_t;
+
+#define publisher_msg_proto_t basic_msg_proto_t
+#define subscriber_msg_proto_t basic_msg_proto_t
 
 uint8_t recv_opcode(const int fd);
 
