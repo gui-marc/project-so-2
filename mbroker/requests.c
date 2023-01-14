@@ -12,6 +12,8 @@
 #include <string.h>
 #include <unistd.h>
 
+pthread_mutex_t tfs_ops = PTHREAD_MUTEX_INITIALIZER;
+
 void *listen_for_requests(void *queue) {
     set_log_level(LOG_VERBOSE);
     while (true) {
@@ -48,6 +50,17 @@ void parse_request(queue_obj_t *obj) {
 }
 
 void register_publisher(void *protocol) {
+
+    /*
+    Metadata of the current inbox (Stores current publisher and subscribers)
+     Max filename from TFS is 40 (config.h),
+     (len(BOX_NAME_SIZE + ".meta\0") = 38) <
+     40, should be okay
+
+        char metadata_filename[MAX_FILE_NAME];
+    snprintf(metadata_filename, MAX_FILE_NAME, "%s.pub", request->box_name);
+    */
+
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     // TODO: O_WRONLY | O_CREAT faz sentido sequer?
     int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
@@ -98,44 +111,41 @@ void create_box(void *protocol) {
 
     create_box_response_proto_t *response =
         calloc(1, sizeof(create_box_response_proto_t));
-    ALWAYS_ASSERT(response != NULL, "Call to calloc failed.");
+    ALWAYS_ASSERT(
+        response != NULL,
+        "Call to calloc failed."); // TODO: wrap calloc instead of this
     response->return_code = REMOVE_BOX_RESPONSE;
 
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
-    // tfs_lookup isn't exposed in headers,
-    //  so use tfs_open for this check
+    // Check if the box already exists.
+    // Send error and quit, if so.
+    pthread_mutex_lock(&tfs_ops);
+
+    // On a real filesystem, we could probably open this file with a
+    // `CREATE_IF_NOT_EXISTS`-equivalent flag. Since TFS doesn't have that
+    // feature (and we can't use tfs_lookup here), we have to call `tfs_open`
+    // twice
     int fd = tfs_open(request->box_name, 0);
     if (fd != -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_ALREADY_EXISTS);
         tfs_close(fd);
+        pthread_mutex_unlock(&tfs_ops);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
+        close(pipe_fd);
         return;
     }
-    // Actually create the new file for the box
-    fd = tfs_open(request->box_name, TFS_O_CREAT);
+    // Create the new file for the box
+    fd = tfs_open(request->box_name, TFS_O_CREAT | TFS_O_TRUNC);
 
-    /*
-    Metadata of the current inbox (Stores current publisher and subscribers)
-     Max filename from TFS is 40 (config.h),
-     (len(BOX_NAME_SIZE + ".meta\0") = 38) <
-     40, should be okay
-    */
-
-    char metadata_filename[MAX_FILE_NAME];
-
-    snprintf(metadata_filename, MAX_FILE_NAME, "%s.meta", request->box_name);
-    int metadata_fd = tfs_open(metadata_filename, TFS_O_CREAT);
-    if (fd == -1 || metadata_fd == -1) {
+    if (fd == -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
         tfs_close(fd);
-        tfs_close(metadata_fd);
-    } else {
-        // Initialize the publisher string to \0.
-        char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
-        tfs_write(metadata_fd, null_publisher, NPIPE_PATH_SIZE);
     }
+    pthread_mutex_unlock(&tfs_ops);
     send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
+    close(pipe_fd);
+    return;
 }
 
 void remove_box(void *protocol) {
