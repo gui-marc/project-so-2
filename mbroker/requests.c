@@ -54,7 +54,7 @@ void parse_request(queue_obj_t *obj) {
 void register_publisher(void *protocol) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     // TODO: O_WRONLY | O_CREAT faz sentido sequer?
-    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
+    int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, TFS_O_APPEND);
@@ -63,6 +63,7 @@ void register_publisher(void *protocol) {
     to it. Max filename from TFS is 40 (config.h), (len(BOX_NAME_SIZE +
     ".pub\0") = 37) < 40, should be okay
     */
+    // TODO:Remove this and use box metadata!
     char meta_filename[MAX_FILE_NAME];
     snprintf(meta_filename, MAX_FILE_NAME, "%s.pub", request->box_name);
     pthread_mutex_lock(&tfs_ops);
@@ -135,13 +136,23 @@ void register_publisher(void *protocol) {
 }
 
 void register_subscriber(void *protocol) {
-    (void)protocol;
-    WARN("not implemented\n"); // Todo: implement me
+    register_sub_proto_t *request = (register_sub_proto_t *)protocol;
+    subscriber_msg_proto_t *msg = calloc(1, sizeof(subscriber_msg_proto_t));
+    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
+    ALWAYS_ASSERT(pipe_fd != -1,
+                  "An error ocurred while opening subscriber pipe %s",
+                  request->client_named_pipe_path);
+    int fd = tfs_open(request->box_name, 0);
+    if (fd == -1) {
+        free(msg);
+        close(pipe_fd);
+    }
+    DEBUG("Quitting subscriber, cleaning up...");
 }
 
 void create_box(void *protocol) {
     create_box_proto_t *request = (create_box_proto_t *)protocol;
-
+    // TODO: Free response!
     create_box_response_proto_t *response =
         calloc(1, sizeof(create_box_response_proto_t));
     ALWAYS_ASSERT(
@@ -182,12 +193,11 @@ void create_box(void *protocol) {
 }
 
 void remove_box(void *protocol) {
-    remove_box_proto_t * request = (remove_box_proto_t*) protocol;
+    remove_box_proto_t *request = (remove_box_proto_t *)protocol;
     ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
 }
 
 void list_boxes(void *protocol) {
-    list_boxes_request_proto_t * request = (list_boxes_request_proto_t*) protocol;
-
-
+    list_boxes_request_proto_t *request =
+        (list_boxes_request_proto_t *)protocol;
 }
