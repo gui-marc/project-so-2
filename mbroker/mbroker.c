@@ -17,13 +17,19 @@
 #include <unistd.h>
 
 #include "betterassert.h"
+#include "box_metadata.h"
 #include "fs/operations.h"
 #include "logging.h"
+#include "mbroker.h"
 #include "producer-consumer.h"
 #include "protocols.h"
 #include "requests.h"
 
+#define MAX_BOXES 1024
+
 uint8_t sigint_called = 0;
+
+static box_holder_t box_holder;
 
 void sigint_handler() { sigint_called = 1; }
 
@@ -37,6 +43,10 @@ int main(int argc, char **argv) {
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
+
+    if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
+        PANIC("Failed to create box holder\n");
+    }
 
     // Bootstrap tfs file system
     ALWAYS_ASSERT(tfs_init(NULL) != -1, "Failed to initialize TFS");

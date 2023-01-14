@@ -1,8 +1,3 @@
-#include "requests.h"
-#include "betterassert.h"
-#include "logging.h"
-#include "operations.h"
-#include "protocols.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -11,6 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "betterassert.h"
+#include "logging.h"
+#include "mbroker.h"
+#include "operations.h"
+#include "protocols.h"
+#include "requests.h"
 
 // Guarantees atomicity of checking if a publisher is attached to a box, and if
 // not, attach one to it.
@@ -195,6 +197,10 @@ void create_box(void *protocol) {
 void remove_box(void *protocol) {
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
     ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
+
+    // todo: remove all subscribers and publishers from this box.
+
+    pthread_mutex_unlock(&tfs_ops);
 }
 
 void list_boxes(void *protocol) {
