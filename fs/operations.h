@@ -42,6 +42,19 @@ typedef enum {
 } tfs_file_mode_t;
 
 /**
+ * Looks for a file.
+ *
+ * Note: as a simplification, only a plain directory space (root directory only)
+ * is supported.
+ *
+ * Input:
+ *   - name: absolute path name
+ *   - root_inode: the root directory inode
+ * Returns the inumber of the file, -1 if unsuccessful.
+ */
+static int tfs_lookup(char const *name, inode_t const *root_inode)
+
+/**
  * Open a file.
  *
  * Input:
