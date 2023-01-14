@@ -183,11 +183,15 @@ void create_box(void *protocol) {
 
 void remove_box(void *protocol) {
     remove_box_proto_t * request = (remove_box_proto_t*) protocol;
+    pthread_mutex_lock(&tfs_ops);
     ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
+
+    // todo: remove all subscribers and publishers from this box.
+
+    pthread_mutex_unlock(&tfs_ops);
 }
 
 void list_boxes(void *protocol) {
     list_boxes_request_proto_t * request = (list_boxes_request_proto_t*) protocol;
-
-
+    (void*)request;
 }
