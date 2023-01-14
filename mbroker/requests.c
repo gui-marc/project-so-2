@@ -149,11 +149,12 @@ void create_box(void *protocol) {
 }
 
 void remove_box(void *protocol) {
-    (void)protocol;
-    WARN("not implemented\n"); // Todo: implement me
+    remove_box_proto_t * request = (remove_box_proto_t*) protocol;
+    ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
 }
 
 void list_boxes(void *protocol) {
-    (void)protocol;
-    WARN("not implemented\n"); // Todo: implement me
+    list_boxes_request_proto_t * request = (list_boxes_request_proto_t*) protocol;
+
+
 }
