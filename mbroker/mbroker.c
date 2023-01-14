@@ -1,20 +1,40 @@
+#include "betterassert.h"
+#include "fs/operations.h"
+#include "logging.h"
+#include "producer-consumer.h"
+#include "requests.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "betterassert.h"
+#include "box_metadata.h"
 #include "fs/operations.h"
 #include "logging.h"
+#include "mbroker.h"
 #include "producer-consumer.h"
 #include "protocols.h"
 #include "requests.h"
 
+#define MAX_BOXES 1024
+
+uint8_t sigint_called = 0;
+
+static box_holder_t box_holder;
+
+void sigint_handler() { sigint_called = 1; }
+
 int main(int argc, char **argv) {
+    set_log_level(LOG_VERBOSE); // TODO: Remove
     // Must have at least 3 arguments
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
@@ -23,6 +43,16 @@ int main(int argc, char **argv) {
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     const size_t max_sessions = (size_t)atoi(max_sessions_str);
+
+    if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
+        PANIC("Failed to create box holder\n");
+    }
+
+    // Bootstrap tfs file system
+    ALWAYS_ASSERT(tfs_init(NULL) != -1, "Failed to initialize TFS");
+
+    // Redefine SIGINT treatment
+    signal(SIGINT, sigint_handler);
 
     // producer-consumer queue
     pc_queue_t pc_queue;
@@ -44,6 +74,7 @@ int main(int argc, char **argv) {
     // Create threads
     pthread_t threads[max_sessions];
     for (int i = 0; i < max_sessions; i++) {
+        DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, &pc_queue);
     }
 
@@ -55,13 +86,14 @@ int main(int argc, char **argv) {
     }
 
     // Listen to events in the register pipe
-    while (true) {
-        uint8_t prot_code;
+    while (sigint_called == 0) {
+        uint8_t prot_code = 0;
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
+        DEBUG("Read proto code %u", prot_code);
 
         if (ret == 0) {
             INFO("pipe closed\n");
-            break; // Stop listening
+            continue;
         } else if (ret == -1) {
             PANIC("failed to read named pipe: %s\n", register_pipe_name);
         }
@@ -73,8 +105,11 @@ int main(int argc, char **argv) {
         obj->opcode = prot_code;
         obj->protocol = protocol;
 
+        DEBUG("enqueue request of protocol: %u", obj->opcode);
+
         pcq_enqueue(&pc_queue, obj);
     }
+    DEBUG("Caught SIGINT signal, cleaning up...");
 
     // Wait for all threads to finish
     for (int i = 0; i < max_sessions; i++) {
@@ -91,4 +126,7 @@ int main(int argc, char **argv) {
 
     // Destroys the queue
     pcq_destroy(&pc_queue);
+
+    // Destroys TFS
+    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS");
 }

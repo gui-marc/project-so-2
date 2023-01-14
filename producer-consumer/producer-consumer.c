@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdbool.h>
 
 #include "logging.h"
 #include "producer-consumer.h"
@@ -63,30 +64,52 @@ int pcq_destroy(pc_queue_t *queue) {
 };
 
 int pcq_enqueue(pc_queue_t *queue, void *elem) {
+    bool must_unlock_head = false;
+
+    DEBUG("locking current_size_lock");
     pthread_mutex_lock(&queue->pcq_current_size_lock);
     // If the queue is full
     while (queue->pcq_current_size == queue->pcq_capacity) {
         // Waits until there is free space in the queue
+        DEBUG("waiting on pusher condition");
         pthread_cond_wait(&queue->pcq_pusher_condvar,
                           &queue->pcq_current_size_lock);
     }
 
-    // Inserts a new element at the tail
+    DEBUG("locking tail lock");
     pthread_mutex_lock(&queue->pcq_tail_lock);
-    if (queue->pcq_tail >= queue->pcq_capacity - 1) {
-        queue->pcq_buffer[0] = elem;
-        queue->pcq_tail = 1;
+    DEBUG("locking head lock");
+    pthread_mutex_lock(&queue->pcq_head_lock);
+    if (queue->pcq_head == queue->pcq_tail) {
+        DEBUG("must unlock head");
+        must_unlock_head = true;
     } else {
-        queue->pcq_buffer[queue->pcq_tail + 1] = elem;
-        queue->pcq_tail++;
+        DEBUG("unlocking head_lock");
+        pthread_mutex_unlock(&queue->pcq_head_lock);
     }
+
+    // Inserts a new element at the tail
+
+    DEBUG("adding element at index: %lu",
+          queue->pcq_tail % queue->pcq_capacity);
+    queue->pcq_buffer[queue->pcq_tail % queue->pcq_capacity] = elem;
+    queue->pcq_tail++;
+
+    DEBUG("unlocking tail lock");
     pthread_mutex_unlock(&queue->pcq_tail_lock);
 
     // Increment the current size
     queue->pcq_current_size++;
+    DEBUG("unlocking current size lock");
     pthread_mutex_unlock(&queue->pcq_current_size_lock);
 
+    if (must_unlock_head) {
+        DEBUG("unlocking head lock");
+        pthread_mutex_unlock(&queue->pcq_head_lock);
+    }
+
     // Emit the signal that other threads can pop a element
+    DEBUG("sending popper signal");
     pthread_cond_signal(&queue->pcq_popper_condvar);
 
     // Ok
@@ -94,32 +117,56 @@ int pcq_enqueue(pc_queue_t *queue, void *elem) {
 };
 
 void *pcq_dequeue(pc_queue_t *queue) {
+    bool must_unlock_tail = false;
+
+    DEBUG("locking current size lock");
     pthread_mutex_lock(&queue->pcq_current_size_lock);
     // If the queue is empty
     while (queue->pcq_current_size == 0) {
         // Waits until there is at least 1 element in the queue
+        DEBUG("waiting on popper condition");
         pthread_cond_wait(&queue->pcq_popper_condvar,
                           &queue->pcq_current_size_lock);
     }
 
     // Pops the element at the head
+    DEBUG("locking head lock");
     pthread_mutex_lock(&queue->pcq_head_lock);
-    void *last = queue->pcq_buffer[queue->pcq_head];
-    queue->pcq_buffer[queue->pcq_head] = NULL;
+    DEBUG("locking tail lock");
+    pthread_mutex_lock(&queue->pcq_tail_lock);
+    if (queue->pcq_head == queue->pcq_tail) {
+        DEBUG("must unlock tail");
+        must_unlock_tail = true;
+    } else {
+        DEBUG("unlocking tail lock");
+        pthread_mutex_unlock(&queue->pcq_tail_lock);
+    }
+
+    DEBUG("getting element at index: %lu",
+          queue->pcq_head % queue->pcq_capacity);
+    void *first = queue->pcq_buffer[queue->pcq_head % queue->pcq_capacity];
+    queue->pcq_buffer[queue->pcq_head % queue->pcq_capacity] = NULL;
+    queue->pcq_head++;
     // If is the last element and still has capacity (implicit in the semaphore)
     // the next element (head) will be at the start of the vector
-    if (queue->pcq_head == queue->pcq_capacity - 1) {
-        queue->pcq_head = 0;
-    } else {
-        queue->pcq_head++;
-    }
+    DEBUG("unlocking head lock");
     pthread_mutex_unlock(&queue->pcq_head_lock);
 
     // Decrease the current size
     queue->pcq_current_size--;
+    DEBUG("unlocking current size lock");
     pthread_mutex_unlock(&queue->pcq_current_size_lock);
 
+    if (must_unlock_tail) {
+        DEBUG("unlocking tail lock");
+        pthread_mutex_unlock(&queue->pcq_tail_lock);
+    }
+
     // Tell the other threads that there is one more free space in the queue
+    DEBUG("sending pusher signal");
     pthread_cond_signal(&queue->pcq_pusher_condvar);
-    return last;
+
+    queue_obj_t *obj = (queue_obj_t *)first;
+    DEBUG("object dequeued with opcode: %u", obj->opcode);
+    return first;
 };

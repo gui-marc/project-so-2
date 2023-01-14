@@ -42,6 +42,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
                sizeof(list_boxes_response_proto_t));
 
     // Reads all messages
+    // RG: O_RDONLY | O_CREAT faz sentido?
     int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
 
     // Breaks in the last box or if there was an error in the server side
@@ -84,7 +85,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     // Removes the pipe
     ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
 
-    // Ok
+    fprintf(stdout, "OK\n");
     return 0;
 }
 
@@ -107,10 +108,10 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     if (response->return_code != 0) {
         fprintf(stderr, "%s", response->error_msg);
         return -1;
+    } else {
+        fprintf(stdout, "OK\n");
+        return 0;
     }
-
-    // Ok
-    return 0;
 }
 
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
@@ -132,9 +133,10 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     if (response->return_code != 0) {
         fprintf(stderr, "%s", response->error_msg);
         return -1;
+    } else {
+        fprintf(stdout, "OK\n");
+        return 0;
     }
-
-    return 0;
 }
 
 int main(int argc, char **argv) {

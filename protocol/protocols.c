@@ -24,13 +24,21 @@ uint8_t recv_opcode(const int fd) {
 
 void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    size_t size = proto_size(opcode);
-    char *final = malloc(sizeof(uint8_t) + size);
+    size_t size = proto_size(opcode) + sizeof(uint8_t);
+    unsigned char *final = malloc(size);
+    DEBUG("Alloc size %lu", size);
+    uint8_t saved_opcode;
 
     memcpy(final, &opcode, sizeof(uint8_t));
-    memcpy(final + sizeof(uint8_t), proto, size);
+    memcpy(&saved_opcode, final, sizeof(uint8_t));
+    ALWAYS_ASSERT(saved_opcode == opcode, "Failed to save opcode");
 
-    ALWAYS_ASSERT(write(fd, proto, size) == size, "Failed to write proto");
+    memcpy(final + sizeof(uint8_t), proto, size - sizeof(uint8_t));
+    memcpy(&saved_opcode, final, sizeof(uint8_t));
+    ALWAYS_ASSERT(saved_opcode == opcode, "Failed to save opcode");
+
+    ALWAYS_ASSERT(write(fd, final, size) == size, "Failed to write proto");
+    free(final);
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
@@ -47,6 +55,7 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
 }
 
 void *parse_protocol(const int rx, const uint8_t opcode) {
+    DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
     void *protocol = malloc(proto_sz);
     ssize_t sz = read(rx, protocol, proto_sz);
@@ -115,7 +124,7 @@ size_t proto_size(uint8_t code) {
         sz = sizeof(list_boxes_response_proto_t);
         break;
     default:
-        WARN("invalid proto code\n");
+        PANIC("invalid proto code\n");
         break;
     }
     return sz;
