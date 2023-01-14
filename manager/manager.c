@@ -42,6 +42,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
                sizeof(list_boxes_response_proto_t));
 
     // Reads all messages
+    // RG: O_RDONLY | O_CREAT faz sentido?
     int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
 
     // Breaks in the last box or if there was an error in the server side
