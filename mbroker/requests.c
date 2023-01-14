@@ -1,8 +1,3 @@
-#include "requests.h"
-#include "betterassert.h"
-#include "logging.h"
-#include "operations.h"
-#include "protocols.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -11,6 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "betterassert.h"
+#include "logging.h"
+#include "mbroker.h"
+#include "operations.h"
+#include "protocols.h"
+#include "requests.h"
 
 // Guarantees atomicity of checking if a publisher is attached to a box, and if
 // not, attach one to it.
@@ -194,5 +196,5 @@ void remove_box(void *protocol) {
 void list_boxes(void *protocol) {
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
-    (void *)request;
+    (void)request;
 }

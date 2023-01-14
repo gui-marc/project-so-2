@@ -36,7 +36,8 @@ typedef struct box_metadata_t {
  * @param max_sessions the max sessions of the mbroker
  * @return box_metadata_t* the box metadata created
  */
-box_metadata_t *box_metadata_create(const char *name, const int max_sessions);
+box_metadata_t *box_metadata_create(const char *name,
+                                    const size_t max_sessions);
 
 /**
  * @brief Destroys a box metadata
@@ -52,6 +53,8 @@ typedef struct box_holder_t {
     box_metadata_t **boxes;
     size_t current_size;
     size_t max_size;
+
+    pthread_mutex_t lock;
 } box_holder_t;
 
 /**
@@ -69,7 +72,7 @@ int box_holder_create(box_holder_t *holder, const size_t max_boxes);
  * @param holder to insert at
  * @param box to be inserted
  */
-void box_holder_insert(box_holder_t *holder, const box_metadata_t *box);
+void box_holder_insert(box_holder_t *holder, box_metadata_t *box);
 
 /**
  * @brief Removes a box from the holder
