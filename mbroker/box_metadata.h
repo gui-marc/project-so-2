@@ -5,6 +5,9 @@
 #include <pthread.h>
 #include <stdint.h>
 
+/**
+ * @brief Represents a box in the mbroker. Contains all info related to the box.
+ */
 typedef struct box_metadata_t {
     char name[BOX_NAME_SIZE];
 
@@ -41,5 +44,46 @@ box_metadata_t *box_metadata_create(const char *name, const int max_sessions);
  * @param box
  */
 void box_metadata_destroy(box_metadata_t *box);
+
+/**
+ * @brief Holds the mbroker created boxes
+ */
+typedef struct box_holder_t {
+    box_metadata_t **boxes;
+    size_t current_size;
+    size_t max_size;
+} box_holder_t;
+
+/**
+ * @brief Creates a box_holder
+ *
+ * @param the already allocated holder
+ * @param max_boxes
+ * @return int 0 if was successful and -1 otherwise
+ */
+int box_holder_create(box_holder_t *holder, const size_t max_boxes);
+
+/**
+ * @brief Inserts a box metadata in the box holder
+ *
+ * @param holder to insert at
+ * @param box to be inserted
+ */
+void box_holder_insert(box_holder_t *holder, const box_metadata_t *box);
+
+/**
+ * @brief Removes a box from the holder
+ *
+ * @param name of the box to remove
+ */
+void box_holder_remove(box_holder_t *holder, const char *name);
+
+/**
+ * @brief Finds a box with the given name
+ *
+ * @param name the box name
+ * @return box_metadata_t* if the was box found or NULL otherwise
+ */
+box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name);
 
 #endif // __BOX_METADATA_T_H__
