@@ -242,8 +242,7 @@ ssize_t tfs_write(int fhandle, void const *buffer, size_t to_write) {
     return (ssize_t)to_write;
 }
 
-//ssize_t tfs_seek(int fhandle, void, );
-
+// ssize_t tfs_seek(int fhandle, void, );
 
 ssize_t tfs_read(int fhandle, void *buffer, size_t len) {
     if (pthread_mutex_lock(&g_library_mutex) == -1) {

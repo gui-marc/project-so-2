@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 
 void *listen_for_requests(void *queue) {
     set_log_level(LOG_VERBOSE);
@@ -49,8 +49,8 @@ void parse_request(queue_obj_t *obj) {
 
 void register_publisher(void *protocol) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
-
-    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY | O_CREAT);
+    // TODO: O_WRONLY | O_CREAT faz sentido sequer?
+    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, 0);
@@ -65,30 +65,27 @@ void register_publisher(void *protocol) {
         tfs_close(metadata_fd);
         return;
     }
-    //Check if there's a publisher already
+    // Check if there's a publisher already
     char cur_publisher[NPIPE_PATH_SIZE];
     tfs_read(metadata_fd, &cur_publisher, NPIPE_PATH_SIZE);
     char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
-    //There's a publisher already - exit
+    // There's a publisher already - exit
     if (!STR_MATCH(cur_publisher, null_publisher)) {
         close(pipe_fd);
         tfs_close(fd);
         tfs_close(metadata_fd);
         return;
     }
-    //There's no publisher, continue
-    //tfs_write(metadata_fd, )
-    //TODO RG: look here
+    // There's no publisher, continue
+    // tfs_write(metadata_fd, )
+    // TODO RG: look here
 
-
-    
-    //if (STR_MATCH(cur_publisher))
+    // if (STR_MATCH(cur_publisher))
     /*TODO these checks:
     if tfs_write fails;
     if a publisher already exists;
 
     */
-
 }
 
 void register_subscriber(void *protocol) {
@@ -133,9 +130,8 @@ void create_box(void *protocol) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
         tfs_close(fd);
         tfs_close(metadata_fd);
-    }
-    else {
-        //Initialize the publisher string to \0.
+    } else {
+        // Initialize the publisher string to \0.
         char *null_publisher = calloc(1, NPIPE_PATH_SIZE);
         tfs_write(metadata_fd, null_publisher, NPIPE_PATH_SIZE);
     }
