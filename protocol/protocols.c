@@ -99,7 +99,7 @@ void *list_boxes_response_proto(const uint8_t last, const char *box_name,
 }
 
 void *message_proto(const char *message) {
-    basic_msg_proto_t *p = malloc(sizeof(basic_msg_proto_t));
+    basic_msg_proto_t *p = calloc(1, sizeof(basic_msg_proto_t));
     strcpy(p->msg, message);
     return p;
 }

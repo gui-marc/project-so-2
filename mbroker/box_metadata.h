@@ -15,19 +15,19 @@ typedef struct box_metadata_t {
     size_t total_message_size;
     pthread_mutex_t total_message_size_lock;
 
-    pthread_mutex_t read_condvar_lock;
+    // pthread_mutex_t read_condvar_lock;
     pthread_cond_t read_condvar;
 
-    int publisher_idx;
+    pthread_t publisher_idx;
     pthread_mutex_t publisher_idx_lock;
 
     bool has_publisher;
     pthread_mutex_t has_publisher_lock;
 
-    int subscribers_count;
+    size_t subscribers_count;
     pthread_mutex_t subscribers_count_lock;
 
-    int *subscribers;
+    size_t *subscribers;
     pthread_mutex_t subscribers_lock;
 } box_metadata_t;
 
@@ -80,8 +80,9 @@ void box_holder_insert(box_holder_t *holder, box_metadata_t *box);
  * @brief Removes a box from the holder
  *
  * @param name of the box to remove
+ * @return 0 if it was sucessfully removed and -1 otherwise
  */
-void box_holder_remove(box_holder_t *holder, const char *name);
+int box_holder_remove(box_holder_t *holder, const char *name);
 
 /**
  * @brief Finds a box with the given name

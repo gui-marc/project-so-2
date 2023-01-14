@@ -13,11 +13,11 @@ box_metadata_t *box_metadata_create(const char *name,
     pthread_mutex_init(&box->subscribers_lock, NULL);
     pthread_mutex_init(&box->publisher_idx_lock, NULL);
     pthread_mutex_init(&box->subscribers_count_lock, NULL);
-    pthread_mutex_init(&box->read_condvar_lock, NULL);
+    // pthread_mutex_init(&box->read_condvar_lock, NULL);
     pthread_mutex_init(&box->total_message_size_lock, NULL);
     pthread_cond_init(&box->read_condvar, NULL);
     strcpy(box->name, name);
-    box->publisher_idx = -1;
+    box->publisher_idx = 0;
     box->subscribers = calloc(max_sessions, sizeof(size_t));
     box->has_publisher = false;
     box->subscribers_count = 0;
@@ -30,7 +30,7 @@ void box_metadata_destroy(box_metadata_t *box) {
     pthread_mutex_destroy(&box->subscribers_lock);
     pthread_mutex_destroy(&box->publisher_idx_lock);
     pthread_mutex_destroy(&box->subscribers_count_lock);
-    pthread_mutex_destroy(&box->read_condvar_lock);
+    // pthread_mutex_destroy(&box->read_condvar_lock);
     pthread_mutex_destroy(&box->total_message_size_lock);
     pthread_cond_destroy(&box->read_condvar);
     free(box->name);
@@ -60,7 +60,7 @@ void box_holder_insert(box_holder_t *holder, box_metadata_t *box) {
     pthread_mutex_unlock(&holder->lock);
 }
 
-void box_holder_remove(box_holder_t *holder, const char *name) {
+int box_holder_remove(box_holder_t *holder, const char *name) {
     pthread_mutex_lock(&holder->lock);
     DEBUG("Removing box %s", name);
     for (size_t i = 0; i < holder->current_size; i++) {
@@ -72,11 +72,13 @@ void box_holder_remove(box_holder_t *holder, const char *name) {
                 holder->boxes[j] = holder->boxes[j + 1];
             }
             holder->current_size--;
-            return;
+            pthread_mutex_unlock(&holder->lock);
+            return 0;
         }
     }
     WARN("No boxes with the name: %s were removed", name);
     pthread_mutex_unlock(&holder->lock);
+    return -1;
 }
 
 box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name) {

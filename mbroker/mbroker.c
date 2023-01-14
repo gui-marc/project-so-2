@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
-    const size_t max_sessions = (size_t)atoi(max_sessions_str);
+    max_sessions = (size_t)atoi(max_sessions_str);
 
     if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
         PANIC("Failed to create box holder\n");

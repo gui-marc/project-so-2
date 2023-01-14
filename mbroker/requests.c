@@ -14,10 +14,6 @@
 #include "protocols.h"
 #include "requests.h"
 
-// Guarantees atomicity of checking if a publisher is attached to a box, and if
-// not, attach one to it.
-pthread_mutex_t tfs_ops = PTHREAD_MUTEX_INITIALIZER;
-
 void *listen_for_requests(void *queue) {
     set_log_level(LOG_VERBOSE);
     while (true) {
@@ -60,42 +56,32 @@ void register_publisher(void *protocol) {
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, TFS_O_APPEND);
-    /*
-    Meta-file for the box. If this file exists, then a publisher is registered
-    to it. Max filename from TFS is 40 (config.h), (len(BOX_NAME_SIZE +
-    ".pub\0") = 37) < 40, should be okay
-    */
-    // TODO:Remove this and use box metadata!
-    char meta_filename[MAX_FILE_NAME];
-    snprintf(meta_filename, MAX_FILE_NAME, "%s.pub", request->box_name);
-    pthread_mutex_lock(&tfs_ops);
-    int meta_fd = tfs_open(meta_filename, 0);
-    // If we couldn't open the box for whatever reason, or the meta-file exists,
+    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    // If we couldn't open the box for whatever reason,
     // exit.
-    if (fd == -1 || meta_fd != -1) {
+    if (fd == -1 || box == NULL) {
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
-        tfs_close(meta_fd);
-        tfs_unlink(meta_filename);
-        pthread_mutex_unlock(&tfs_ops);
         return;
     }
-    // At this point, meta-file doesn't exist.
-    ALWAYS_ASSERT((meta_fd = tfs_open(meta_filename, TFS_O_CREAT)) != -1,
-                  "An error ocurred while creating meta-file for %s",
-                  request->box_name);
-    ALWAYS_ASSERT(tfs_close(meta_fd) == 0,
-                  "An error ocurred closing meta-file for %s",
-                  request->box_name);
-    pthread_mutex_unlock(&tfs_ops);
 
-    // Start receiving messages
-    // char *msg = calloc(MSG_SIZE, sizeof(char));
-    //  int bytes_read = -1;
+    pthread_mutex_lock(&box->has_publisher_lock);
+    if (box->has_publisher == true) {
+        close(pipe_fd);
+        tfs_close(fd);
+        pthread_mutex_unlock(&box->has_publisher_lock);
+        return;
+    }
+    box->has_publisher = true;
+    pthread_mutex_unlock(&box->has_publisher_lock);
+    box->publisher_idx = pthread_self();
+
     uint8_t op;
     publisher_msg_proto_t *pub_msg;
-    ssize_t written = -1;
-    size_t msg_len;
+    size_t written = 0;
+    ssize_t wrote;
+    size_t msg_len = 0;
+
     while (0) { // FIXME: Should check a variable! (Maybe create an array that a
                 // signal handler changes this thread's variable)
         op = recv_opcode(pipe_fd);
@@ -108,8 +94,22 @@ void register_publisher(void *protocol) {
         pub_msg = (publisher_msg_proto_t *)parse_protocol(pipe_fd, op);
         DEBUG("Received this message from publisher of '%s': '%s'",
               request->box_name, pub_msg->msg);
-        written = tfs_write(fd, pub_msg->msg,
-                            strlen(pub_msg->msg) + 1); //+1 to include \0
+        msg_len = strlen(pub_msg->msg) + 1;
+        wrote = tfs_write(fd, pub_msg->msg,
+                          strlen(pub_msg->msg) + 1); //+1 to include \0
+        if (wrote < 0) {
+            // ... error
+            DEBUG("Error occurred in tfs_write publisher msg")
+            break;
+        } else {
+            written = (size_t)wrote;
+        }
+
+        pthread_mutex_lock(&box->total_message_size_lock);
+        box->total_message_size += msg_len;
+        pthread_mutex_unlock(&box->total_message_size_lock);
+        pthread_cond_broadcast(&box->read_condvar);
+        free(pub_msg);
         if (written != msg_len) {
             // We don't explicitly disallow new publishers to connect after this
             // one quits, But subsequent publishers will all fail here and won't
@@ -118,38 +118,74 @@ void register_publisher(void *protocol) {
             break;
         }
     }
+
     DEBUG("Cleaning up thread for publisher of '%s'", request->box_name);
+    pthread_mutex_lock(&box->has_publisher_lock);
+    box->has_publisher = false;
+    pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
-    ALWAYS_ASSERT(tfs_unlink(meta_filename) == 0,
-                  "Failed to delete meta-file while removing publisher");
     DEBUG("Thread for publisher of '%s' finished", request->box_name);
     return;
-    // There's no publisher, continue
-    // tfs_write(metadata_fd, )
-    // TODO RG: look here
-
-    // if (STR_MATCH(cur_publisher))
-    /*TODO these checks:
-    if tfs_write fails;
-    if a publisher already exists;
-
-    */
 }
 
 void register_subscriber(void *protocol) {
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
-    subscriber_msg_proto_t *msg = calloc(1, sizeof(subscriber_msg_proto_t));
     int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1,
                   "An error ocurred while opening subscriber pipe %s",
                   request->client_named_pipe_path);
-    int fd = tfs_open(request->box_name, 0);
-    if (fd == -1) {
-        free(msg);
+    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    if (box == NULL) {
+        // free(response_proto);
         close(pipe_fd);
     }
+    int fd = tfs_open(request->box_name, 0);
+    if (fd == -1) {
+        close(pipe_fd);
+    }
+
+    // Todo: change subscribers array (it is even needed?)
+    pthread_mutex_lock(&box->subscribers_count_lock);
+    box->subscribers_count++;
+    pthread_mutex_unlock(&box->subscribers_count_lock);
+
+    size_t bytes_read = 0;
+    size_t to_write = 0;
+    char *buf_og = calloc(MSG_SIZE, sizeof(char));
+    char *msg_buf;
+    char *tmp_msg = calloc(MSG_SIZE, sizeof(char));
+    basic_msg_proto_t *msg = NULL;
+    // This first while loop only closes with a signal or (todo) another condvar
+    while (true) {
+        // Waits for a new message
+        pthread_mutex_lock(&box->total_message_size_lock);
+        while (box->total_message_size > bytes_read) {
+            pthread_cond_wait(&box->read_condvar,
+                              &box->total_message_size_lock);
+        }
+        // Read remaining bytes
+        msg_buf = buf_og;
+        tfs_read(fd, msg_buf, box->total_message_size - bytes_read);
+        while (box->total_message_size > bytes_read) {
+            strcpy(tmp_msg, msg_buf);
+            to_write = strlen(msg_buf) + 1;
+            msg = message_proto(tmp_msg);
+            send_proto_string(pipe_fd, SUBSCRIBER_MESSAGE, msg);
+            msg_buf += to_write;
+            bytes_read += to_write;
+        }
+
+        // acho que aqui é uma condição para "fechar" o subscriber
+        // podiamos meter uma outra condvar para fechar o subscriber quando
+        // fechasse a box faz sentido?
+        pthread_mutex_unlock(&box->total_message_size_lock);
+    }
     DEBUG("Quitting subscriber, cleaning up...");
+
+    pthread_mutex_lock(&box->subscribers_count_lock);
+    box->subscribers_count--;
+    pthread_mutex_unlock(&box->subscribers_count_lock);
 }
 
 void create_box(void *protocol) {
@@ -164,46 +200,97 @@ void create_box(void *protocol) {
 
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
-    // Check if the box already exists.
-    // Send error and quit, if so.
-    pthread_mutex_lock(&tfs_ops);
+    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
 
-    // On a real filesystem, we could probably open this file with a
-    // `CREATE_IF_NOT_EXISTS`-equivalent flag. Since TFS doesn't have that
-    // feature (and we can't use tfs_lookup here), we have to call `tfs_open`
-    // twice
-    int fd = tfs_open(request->box_name, 0);
-    if (fd != -1) {
+    if (box != NULL) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_ALREADY_EXISTS);
-        tfs_close(fd);
-        pthread_mutex_unlock(&tfs_ops);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
         close(pipe_fd);
         return;
     }
     // Create the new file for the box
-    fd = tfs_open(request->box_name, TFS_O_CREAT | TFS_O_TRUNC);
+    int fd = tfs_open(request->box_name, TFS_O_CREAT | TFS_O_TRUNC);
 
     if (fd == -1) {
         snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
         tfs_close(fd);
     }
-    pthread_mutex_unlock(&tfs_ops);
-    send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
+    box_metadata_t *new_box =
+        box_metadata_create(request->box_name, max_sessions);
+    box_holder_insert(&box_holder, new_box);
+    send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, response);
     close(pipe_fd);
     return;
 }
 
 void remove_box(void *protocol) {
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
+
+    // Removes box from tfs
     ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
 
-    // todo: remove all subscribers and publishers from this box.
+    int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
 
-    pthread_mutex_unlock(&tfs_ops);
+    if (box_holder_remove(&box_holder, request->box_name) == 0) {
+        // Box was removed successfully
+        response_proto_t *res = response_proto(0, "\0");
+        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
+        free(res);
+    } else {
+        // Error while removing box
+        char *error_msg = calloc(MSG_SIZE, sizeof(char));
+        sprintf(error_msg, "Failed to remove box with name: %s",
+                request->box_name);
+        response_proto_t *res = response_proto(0, error_msg);
+        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
+        free(error_msg);
+        free(res);
+    }
+
+    // Todo: close all related subscribers and publishers
+
+    close(wx);
 }
 
 void list_boxes(void *protocol) {
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
+
+    int wr = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
+
+    pthread_mutex_lock(&box_holder.lock);
+
+    // Send a response for each box
+    for (size_t i = 0; i < box_holder.current_size; i++) {
+        // send each request
+        box_metadata_t *box = box_holder.boxes[i];
+        uint8_t last = 0;
+        if (i == box_holder.current_size - 1) {
+            last = 1;
+        }
+        pthread_mutex_lock(&box->total_message_size_lock);
+        pthread_mutex_lock(&box->has_publisher_lock);
+        pthread_mutex_lock(&box->subscribers_count_lock);
+        list_boxes_response_proto_t *res = list_boxes_response_proto(
+            last, box->name, box->total_message_size, box->has_publisher,
+            box->subscribers_count);
+        pthread_mutex_unlock(&box->total_message_size_lock);
+        pthread_mutex_unlock(&box->has_publisher_lock);
+        pthread_mutex_unlock(&box->subscribers_count_lock);
+
+        send_proto_string(wr, LIST_BOXES_RESPONSE, res);
+    }
+
+    // No boxes
+    if (box_holder.current_size == 0) {
+        char *msg = calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
+        list_boxes_response_proto_t *res =
+            list_boxes_response_proto(1, msg, 0, false, 0);
+        send_proto_string(wr, LIST_BOXES_RESPONSE, res);
+        free(msg);
+    }
+
+    pthread_mutex_unlock(&box_holder.lock);
+
+    close(wr);
 }
