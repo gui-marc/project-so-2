@@ -31,7 +31,7 @@ uint8_t sigint_called = 0;
 void sigint_handler() {
     DEBUG("Caught SIGINT! Exiting.");
     sigint_called = 1;
-    exit(1);
+    // exit(1);
 }
 
 int main(int argc, char **argv) {

@@ -102,14 +102,15 @@ box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name) {
 }
 
 void box_holder_destroy(box_holder_t *holder) {
-    fprintf(stdout, "[DEBUG] Destroying box holder\n");
+    set_log_level(LOG_VERBOSE);
+    DEBUG("Destroying box holder");
     pthread_mutex_lock(&holder->lock);
     for (size_t i = 0; i < holder->current_size; i++) {
+        DEBUG("Destroying box at %lu", i);
         box_metadata_t *box = holder->boxes[i];
         fprintf(stdout, "[DEBUG] Freeing box metadata for '%s'\n", box->name);
         box_metadata_destroy(box);
     }
     pthread_mutex_unlock(&holder->lock);
     pthread_mutex_destroy(&holder->lock);
-    free(holder);
 }
