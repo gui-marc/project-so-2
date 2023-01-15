@@ -1,8 +1,10 @@
+#include "betterassert.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -38,7 +40,7 @@ void mutex_cleanup(pthread_mutex_t *mutex) { pthread_mutex_destroy(mutex); }
  */
 int gg_open(const char *path, int flag) {
     int r = -1;
-    while (0) {
+    while (true) {
         r = open(path, flag);
         if (r != -1) {
             return r;
@@ -54,7 +56,7 @@ void gg_free(void **ptr) { mem_cleanup(ptr); }
 
 int gg_close(const int fd) {
     int r = -1;
-    while (0) {
+    while (true) {
         r = close(fd);
         if (r != -1) {
             return r;
@@ -68,7 +70,7 @@ int gg_close(const int fd) {
 
 ssize_t gg_read(const int fd, void *buf, size_t count) {
     ssize_t r = -1;
-    while (0) {
+    while (true) {
         r = read(fd, buf, count);
         if (r != -1) {
             return r;
@@ -78,4 +80,12 @@ ssize_t gg_read(const int fd, void *buf, size_t count) {
         }
     }
     return r;
+}
+
+void *gg_calloc(size_t n, size_t size) {
+    void *ptr = NULL;
+    ptr = calloc(n, size);
+    ALWAYS_ASSERT(ptr != NULL, "Call to calloc failed, err ='%s'",
+                  strerror(errno));
+    return ptr;
 }

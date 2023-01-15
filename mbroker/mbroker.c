@@ -30,7 +30,7 @@
 uint8_t sigint_called = 0;
 
 void sigint_handler() {
-    //WARNING: can't use logging functions here! fprintf isn't signal-safe.
+    // WARNING: can't use logging functions here! fprintf isn't signal-safe.
     sigint_called = 1;
     // exit(1);
 }
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
 
     // Create threads
     pthread_t threads[max_sessions];
-    void **args = calloc(2, sizeof(char *));
+    void **args = gg_calloc(2, sizeof(char *));
     args[0] = &pc_queue;
     args[1] = &box_holder;
     for (int i = 0; i < max_sessions; i++) {
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 
         void *protocol = parse_protocol(rx, prot_code);
         // obj will be freed by worker thread
-        queue_obj_t *obj = calloc(1, sizeof(queue_obj_t));
+        queue_obj_t *obj = gg_calloc(1, sizeof(queue_obj_t));
 
         obj->opcode = prot_code;
         obj->protocol = protocol;

@@ -57,7 +57,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     size_t curr_index = 0;
     // Array for storing responses
     list_boxes_response_proto_t **responses =
-        calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
+        gg_calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
 
     // Reads all messages
     int rx = open_pipe(client_pipe_name, O_RDONLY);

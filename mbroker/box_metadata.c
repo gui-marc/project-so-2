@@ -7,8 +7,7 @@
 
 box_metadata_t *box_metadata_create(const char *name) {
     DEBUG("Creating box metadata for %s", name);
-    box_metadata_t *box = calloc(1, sizeof(box_metadata_t));
-    ALWAYS_ASSERT(box != NULL, "Failed to alloc box_metadata");
+    box_metadata_t *box = gg_calloc(1, sizeof(box_metadata_t));
     ALWAYS_ASSERT(
         pthread_mutex_init(&box->has_publisher_lock, NULL) == 0 &&
             pthread_mutex_init(&box->publisher_idx_lock, NULL) == 0 &&
@@ -43,12 +42,9 @@ int box_holder_create(box_holder_t *holder, const size_t max_boxes) {
     holder->max_size = max_boxes;
     DEBUG("Creating box holder {%lu,%lu}", holder->current_size,
           holder->max_size);
-    holder->boxes = calloc(max_boxes, sizeof(box_metadata_t));
+    holder->boxes = gg_calloc(max_boxes, sizeof(box_metadata_t));
     ALWAYS_ASSERT(pthread_mutex_init(&holder->lock, NULL) == 0,
                   "Failed to init holder mutex");
-    if (holder->boxes == NULL) {
-        return -1; // failed to alloc boxes
-    }
     return 0;
 }
 

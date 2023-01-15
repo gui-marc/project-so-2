@@ -43,7 +43,7 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     DEBUG("Got opcode %d", opcode);
     size_t size = proto_size(opcode) + sizeof(uint8_t);
     unsigned char *final __attribute__((cleanup(ustr_cleanup))) =
-        calloc(1, size);
+        gg_calloc(1, size);
     DEBUG("Alloc size %lu", size);
     uint8_t saved_opcode;
 
@@ -88,7 +88,7 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
 void *parse_protocol(const int rx, const uint8_t opcode) {
     DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
-    void *protocol = calloc(1, proto_sz);
+    void *protocol = gg_calloc(1, proto_sz);
     ssize_t sz = gg_read(rx, protocol, proto_sz);
     ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
                   strerror(errno));
@@ -96,14 +96,14 @@ void *parse_protocol(const int rx, const uint8_t opcode) {
 }
 
 void *request_proto(const char *client_named_pipe_path, const char *box_name) {
-    request_proto_t *p = calloc(1, sizeof(request_proto_t));
+    request_proto_t *p = gg_calloc(1, sizeof(request_proto_t));
     strcpy(p->box_name, box_name);
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
 
 void *response_proto(int32_t return_code, const char *error_message) {
-    response_proto_t *p = calloc(1, sizeof(response_proto_t));
+    response_proto_t *p = gg_calloc(1, sizeof(response_proto_t));
     p->return_code = return_code;
     strcpy(p->error_msg, error_message);
     return p;
@@ -111,7 +111,7 @@ void *response_proto(int32_t return_code, const char *error_message) {
 
 void *list_boxes_request_proto(const char *client_named_pipe_path) {
     list_boxes_request_proto_t *p =
-        calloc(1, sizeof(list_boxes_request_proto_t));
+        gg_calloc(1, sizeof(list_boxes_request_proto_t));
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
@@ -121,7 +121,7 @@ void *list_boxes_response_proto(const uint8_t last, const char *box_name,
                                 const uint64_t n_publishers,
                                 const uint64_t n_subscribers) {
     list_boxes_response_proto_t *p =
-        calloc(1, sizeof(list_boxes_response_proto_t));
+        gg_calloc(1, sizeof(list_boxes_response_proto_t));
     p->last = last;
     p->box_size = box_size;
     p->n_publishers = n_publishers;

@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     DEBUG("Going to read input from stdin.");
     bool to_continue = true;
     char *msg_buf __attribute__((cleanup(str_cleanup))) =
-        calloc(MSG_SIZE, sizeof(char));
+        gg_calloc(MSG_SIZE, sizeof(char));
     int ret = 0;
     while (to_continue) {
         if (fgets(msg_buf, MSG_SIZE, stdin) == NULL) {

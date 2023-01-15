@@ -15,7 +15,7 @@
 int sigint_called = 0;
 
 void sigint_handler() {
-    //WARNING: can't use logging functions here! fprintf isn't signal-safe.
+    // WARNING: can't use logging functions here! fprintf isn't signal-safe.
     sigint_called = 1;
 }
 

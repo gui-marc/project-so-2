@@ -75,7 +75,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     char *box_path __attribute__((cleanup(str_cleanup))) =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+        gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -178,7 +178,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     // Create the new file for the box
     // TFS's max filename is 40, so we're good
     char *box_path __attribute__((cleanup(str_cleanup))) =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+        gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
     int fd = tfs_open(box_path, 0);
@@ -200,10 +200,10 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     size_t bytes_read = 0;
     size_t to_write = 0;
     char *buf_og __attribute__((cleanup(str_cleanup))) =
-        calloc(MSG_SIZE, sizeof(char));
+        gg_calloc(MSG_SIZE, sizeof(char));
     char *msg_buf;
     char *tmp_msg __attribute__((cleanup(str_cleanup))) =
-        calloc(MSG_SIZE, sizeof(char));
+        gg_calloc(MSG_SIZE, sizeof(char));
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal or (todo) another condvar
     DEBUG("Entering subscriber loop.");
@@ -270,7 +270,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     // Create the new file for the box
     // TFS's max filename is 40, so we're good
     char *box_path __attribute__((cleanup(str_cleanup))) =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+        gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -307,7 +307,7 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     bool remove_failed = false;
 
     char *box_path __attribute__((cleanup(str_cleanup))) =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+        gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -341,7 +341,7 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         DEBUG("Box removal failed!");
         // Error while removing box
         char *error_msg __attribute__((cleanup(str_cleanup))) =
-            calloc(MSG_SIZE, sizeof(char));
+            gg_calloc(MSG_SIZE, sizeof(char));
         snprintf(error_msg, MSG_SIZE, "Failed to remove box with name: %s",
                  request->box_name);
 
@@ -392,7 +392,7 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
     // No boxes
     if (box_holder->current_size == 0) {
         char *msg __attribute__((cleanup(str_cleanup))) =
-            calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
+            gg_calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
         list_boxes_response_proto_t *res
             __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
                 list_boxes_response_proto(1, msg, 0, false, 0);

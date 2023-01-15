@@ -29,7 +29,7 @@ int pcq_create(pc_queue_t *queue, size_t capacity) {
     queue->pcq_tail = 0;
 
     // Initializes the vector with the capacity
-    queue->pcq_buffer = calloc(capacity, sizeof(void *));
+    queue->pcq_buffer = gg_calloc(capacity, sizeof(void *));
     if (queue->pcq_buffer == NULL) {
         WARN("no memory to allocate pcq_queue buffer");
         return -1;
