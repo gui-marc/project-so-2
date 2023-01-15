@@ -194,37 +194,43 @@ void register_subscriber(void *protocol) {
 }
 
 void create_box(void *protocol) {
+    DEBUG("Creating box...")
     create_box_proto_t *request = (create_box_proto_t *)protocol;
-    // TODO: Free response!
-    create_box_response_proto_t *response =
-        calloc(1, sizeof(create_box_response_proto_t));
-    ALWAYS_ASSERT(
-        response != NULL,
-        "Call to calloc failed."); // TODO: wrap calloc instead of this
-    response->return_code = REMOVE_BOX_RESPONSE;
 
+    DEBUG("opening client named pipe %s", request->client_named_pipe_path);
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
     box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
 
     if (box != NULL) {
-        snprintf(response->error_msg, MSG_SIZE, ERR_BOX_ALREADY_EXISTS);
-        send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, response);
+        response_proto_t *res = response_proto(-1, ERR_BOX_ALREADY_EXISTS);
+        send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         close(pipe_fd);
+        free(res);
         return;
     }
     // Create the new file for the box
-    int fd = tfs_open(request->box_name, TFS_O_CREAT | TFS_O_TRUNC);
+    char box_path[BOX_NAME_SIZE + 1];
+    strcpy(box_path, request->box_name);
+    strcat(box_path, "/");
+    int fd = tfs_open(box_path, TFS_O_CREAT | TFS_O_TRUNC);
 
     if (fd == -1) {
-        snprintf(response->error_msg, MSG_SIZE, ERR_BOX_CREATION);
+        response_proto_t *res = response_proto(-1, ERR_BOX_CREATION);
+        send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         tfs_close(fd);
+        close(pipe_fd);
+        free(res);
     }
+
     box_metadata_t *new_box =
         box_metadata_create(request->box_name, max_sessions);
     box_holder_insert(&box_holder, new_box);
-    send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, response);
+
+    response_proto_t *res = response_proto(0, "\0");
+    send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
     close(pipe_fd);
+    free(res);
     return;
 }
 
