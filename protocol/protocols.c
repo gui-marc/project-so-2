@@ -1,3 +1,8 @@
+#include "protocols.h"
+#include "betterassert.h"
+#include "logging.h"
+#include "utils.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,26 +11,37 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "betterassert.h"
-#include "logging.h"
-#include "protocols.h"
+void response_proto_t_cleanup(response_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
+
+void request_proto_t_cleanup(request_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
+
+void ls_boxes_resp_proto_cleanup(list_boxes_response_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
 
 // Reads an opcode from an open named pipe.
 //  -1 on fail.
 uint8_t recv_opcode(const int fd) {
-    uint8_t opcode;
+    uint8_t opcode = 0;
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t buf_size = sizeof(uint8_t);
-    ALWAYS_ASSERT(read(fd, &opcode, buf_size) == buf_size,
-                  "Failed to read opcode");
-    ALWAYS_ASSERT(opcode != 0, "Failed to convert opcode");
+
+    if (gg_read(fd, &opcode, buf_size, false) != buf_size) {
+        WARN("Possible wrong opcode");
+    }
+
     return opcode;
 }
 
-void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
+int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t size = proto_size(opcode) + sizeof(uint8_t);
-    unsigned char *final = malloc(size);
+    unsigned char *final __attribute__((cleanup(ustr_cleanup))) =
+        gg_calloc(1, size);
     DEBUG("Alloc size %lu", size);
     uint8_t saved_opcode;
 
@@ -36,42 +52,56 @@ void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     memcpy(final + sizeof(uint8_t), proto, size - sizeof(uint8_t));
     memcpy(&saved_opcode, final, sizeof(uint8_t));
     ALWAYS_ASSERT(saved_opcode == opcode, "Failed to save opcode");
-
-    ALWAYS_ASSERT(write(fd, final, size) == size, "Failed to write proto");
-    free(final);
+    ssize_t ret = write(fd, final, size);
+    // Panic if write failed, not due to an EPIPE.
+    if (ret != size) {
+        if (errno == EPIPE) {
+            return -1;
+        }
+        PANIC("Failed to write proto");
+    }
+    // == size
+    //, "Failed to write proto");
+    return 0;
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
-    ALWAYS_ASSERT(unlink(npipe_path) == 0,
-                  "Failed to cleanup/unlink client named pipe.");
+    if (unlink(npipe_path) == -1 && errno != ENOENT) {
+        PANIC(
+            "An error ocurred while attempting to unlink named pipe, err='%s'",
+            strerror(errno));
+    }
     ALWAYS_ASSERT(mkfifo(npipe_path, MKFIFO_PERMS) == 0,
-                  "Failed to create client named pipe.");
+                  "Failed to create client named pipe, error: '%s'",
+                  strerror(errno));
 }
 
-int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
-    int fd = open(npipe_path, _flag);
-    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe");
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag,
+              bool ignore_eintr) {
+    int fd = gg_open(npipe_path, _flag, ignore_eintr);
+    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe '%s', err='%s'",
+                  npipe_path, strerror(errno));
     return fd;
 }
 
 void *parse_protocol(const int rx, const uint8_t opcode) {
-    DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
-    void *protocol = malloc(proto_sz);
-    ssize_t sz = read(rx, protocol, proto_sz);
-    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol");
+    void *protocol = gg_calloc(1, proto_sz);
+    ssize_t sz = gg_read(rx, protocol, proto_sz, false);
+    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
+                  strerror(errno));
     return protocol;
 }
 
 void *request_proto(const char *client_named_pipe_path, const char *box_name) {
-    request_proto_t *p = malloc(sizeof(request_proto_t));
+    request_proto_t *p = gg_calloc(1, sizeof(request_proto_t));
     strcpy(p->box_name, box_name);
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
 
 void *response_proto(int32_t return_code, const char *error_message) {
-    response_proto_t *p = malloc(sizeof(response_proto_t));
+    response_proto_t *p = gg_calloc(1, sizeof(response_proto_t));
     p->return_code = return_code;
     strcpy(p->error_msg, error_message);
     return p;
@@ -79,7 +109,7 @@ void *response_proto(int32_t return_code, const char *error_message) {
 
 void *list_boxes_request_proto(const char *client_named_pipe_path) {
     list_boxes_request_proto_t *p =
-        calloc(1, sizeof(list_boxes_request_proto_t));
+        gg_calloc(1, sizeof(list_boxes_request_proto_t));
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
@@ -89,7 +119,7 @@ void *list_boxes_response_proto(const uint8_t last, const char *box_name,
                                 const uint64_t n_publishers,
                                 const uint64_t n_subscribers) {
     list_boxes_response_proto_t *p =
-        malloc(sizeof(list_boxes_response_proto_t));
+        gg_calloc(1, sizeof(list_boxes_response_proto_t));
     p->last = last;
     p->box_size = box_size;
     p->n_publishers = n_publishers;
@@ -99,12 +129,12 @@ void *list_boxes_response_proto(const uint8_t last, const char *box_name,
 }
 
 void *message_proto(const char *message) {
-    basic_msg_proto_t *p = malloc(sizeof(basic_msg_proto_t));
+    basic_msg_proto_t *p = calloc(1, sizeof(basic_msg_proto_t));
     strcpy(p->msg, message);
     return p;
 }
-
-size_t proto_size(uint8_t code) {
+// Compiler ensures all enum cases are handled.
+size_t proto_size(CODES code) {
     size_t sz = 0;
     switch (code) {
     case REGISTER_PUBLISHER:
@@ -119,6 +149,10 @@ size_t proto_size(uint8_t code) {
     case REMOVE_BOX_RESPONSE:
     case CREATE_BOX_RESPONSE:
         sz = sizeof(response_proto_t);
+        break;
+    case PUBLISHER_MESSAGE:
+    case SUBSCRIBER_MESSAGE:
+        sz = sizeof(basic_msg_proto_t);
         break;
     case LIST_BOXES_RESPONSE:
         sz = sizeof(list_boxes_response_proto_t);

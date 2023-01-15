@@ -11,15 +11,40 @@
 #include "logging.h"
 #include "protocols.h"
 #include "string.h"
+#include "utils.h"
+
+#define MAX_BOX_NAMES 1024
+
+#define NOX_BOXES_FOUND_ERROR "NO BOXES FOUND\n"
 
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
-static int cmp_response(const void *p1, const void *p2) {
-    list_boxes_response_proto_t *r1 = (list_boxes_response_proto_t *)p1;
-    list_boxes_response_proto_t *r2 = (list_boxes_response_proto_t *)p2;
-    return strcmp(r1->box_name, r2->box_name);
-}
+/**
+ * @brief Sorts the list of responses by the box name alphabetically
+ *
+ * @param responses the list of responses
+ * @param size the size of the list
+ */
+void bubble_sort_responses(list_boxes_response_proto_t **responses,
+                           size_t size) {
+    size_t i, j;
+    for (i = 0; i < size - 1; i++)
 
+        // Last i elements are already in place
+        for (j = 0; j < size - i - 1; j++)
+            if (strcmp(responses[j]->box_name, responses[j + 1]->box_name) >
+                0) {
+                // Swap elements
+                list_boxes_response_proto_t *tmp = responses[j + 1];
+                responses[j + 1] = responses[j];
+                responses[j] = tmp;
+            }
+};
+
+/**
+ * @brief Prints how to use the manager
+ *
+ */
 static void print_usage() {
     fprintf(stderr,
             "usage: \n"
@@ -28,28 +53,41 @@ static void print_usage() {
             "   manager <register_pipe_name> <pipe_name> list\n");
 }
 
+/**
+ * @brief Method to list boxes. Makes a request to the mbroker then present the
+ * boxes sorted.
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @return int 0 if is ok and -1 otherwise
+ */
 int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     // Sends the request to the mbroker
     list_boxes_request_proto_t *request =
         list_boxes_request_proto(client_pipe_name);
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+
+    // Creates the pipe to receive the response
+    create_pipe(client_pipe_name);
+
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, LIST_BOXES_REQUEST, request);
 
     size_t curr_index = 0;
     // Array for storing responses
     list_boxes_response_proto_t **responses =
-        calloc(tfs_default_params().max_inode_count,
-               sizeof(list_boxes_response_proto_t));
+        gg_calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
 
     // Reads all messages
-    // RG: O_RDONLY | O_CREAT faz sentido?
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
+
+    list_boxes_response_proto_t *response
+        __attribute__((cleanup(ls_boxes_resp_proto_cleanup)));
 
     // Breaks in the last box or if there was an error in the server side
-    while (1) {
+    while (true) {
         // temporary int opcode
         int t_opcode = 0;
-        ssize_t rs = read(rx, &t_opcode, sizeof(uint8_t));
+        ssize_t rs = gg_read(rx, &t_opcode, sizeof(uint8_t), false);
 
         if (t_opcode == EOF) {
             WARN("Error in the server side");
@@ -60,8 +98,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
         ALWAYS_ASSERT(opcode == LIST_BOXES_RESPONSE, "Received invalid opcode");
         ALWAYS_ASSERT(rs == sizeof(uint8_t), "Failed to read op code");
-        list_boxes_response_proto_t *response =
-            (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
+        response = (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
 
         responses[curr_index] = response;
         curr_index++;
@@ -72,41 +109,62 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     }
 
     // Sorts all things
-    qsort(responses, curr_index, sizeof(list_boxes_response_proto_t),
-          cmp_response);
+    bubble_sort_responses(responses, curr_index);
 
     // Prints all boxes
-    for (size_t i = 0; i < curr_index; i++) {
-        list_boxes_response_proto_t *res = responses[i];
-        fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
-                res->n_publishers, res->n_subscribers);
+    if (curr_index == 1 && strlen(responses[0]->box_name) == 0) {
+        fprintf(stdout, "NO BOXES FOUND\n");
+    } else {
+        for (size_t i = 0; i < curr_index; i++) {
+            list_boxes_response_proto_t *res = responses[i];
+            fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
+                    res->n_publishers, res->n_subscribers);
+        }
     }
-
     // Removes the pipe
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
-    fprintf(stdout, "OK\n");
     return 0;
 }
 
+/**
+ * @brief Handles sending a request for creating a box in the mbroker
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @param box_name the name of the box to be created
+ * @return int 0 if was successful and -1 otherwise
+ */
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
-    // Sends the request to the mbroker
-    request_proto_t *request = request_proto(client_pipe_name, box_name);
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+    // Send the request to the mbroker
+    DEBUG("box_name = '%s'", box_name);
+    request_proto_t *request __attribute__((cleanup(request_proto_t_cleanup))) =
+        request_proto(client_pipe_name, box_name);
+
+    // Creates the pipe to receive the response
+    create_pipe(client_pipe_name);
+
+    // Sends the request to create a box
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, CREATE_BOX_REQUEST, request);
 
-    // Waits for the mbroker to send a response
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
+    // Open the pipe to receive the response
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
+
     uint8_t opcode = 0;
-    ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
-    ALWAYS_ASSERT(rs == sizeof(uint8_t), "Invalid read size");
-    response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    DEBUG("Waiting for mbroker's response");
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t), false);
+    ALWAYS_ASSERT(rs != -1, "Failed to read op code");
+
+    response_proto_t *response
+        __attribute__((cleanup(response_proto_t_cleanup))) =
+            (response_proto_t *)parse_protocol(rx, opcode);
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker, print it
     if (response->return_code != 0) {
-        fprintf(stderr, "%s", response->error_msg);
+        fprintf(stdout, "ERROR %s\n", response->error_msg);
         return -1;
     } else {
         fprintf(stdout, "OK\n");
@@ -114,24 +172,40 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     }
 }
 
+/**
+ * @brief Handles requesting a box removal in the mbroker.
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @param box_name the box to be removed
+ * @return int 0 if was successful and -1 otherwise
+ */
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
     // Send the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+
+    // Creates the pipe to receive the response
+    create_pipe(client_pipe_name);
+
+    // Sends the request to remove a box
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, REMOVE_BOX_REQUEST, request);
 
-    // Waits for a response
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
+    // Open the pipe to receive the response
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
+    // The response protocol code
     uint8_t opcode = 0;
-    ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
-    ALWAYS_ASSERT(rs == sizeof(uint8_t), "Invalid read size");
-    response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t), false);
+    ALWAYS_ASSERT(rs != -1, "Invalid read size");
+    response_proto_t *response
+        __attribute__((cleanup(response_proto_t_cleanup))) =
+            (response_proto_t *)parse_protocol(rx, opcode);
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker side
     if (response->return_code != 0) {
-        fprintf(stderr, "%s", response->error_msg);
+        fprintf(stdout, "ERROR %s\n", response->error_msg);
         return -1;
     } else {
         fprintf(stdout, "OK\n");
@@ -139,35 +213,40 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     }
 }
 
+/**
+ * @brief Parses the right operation in the manager
+ *
+ * @param argc number of arguments
+ * @param argv array containing the arguments
+ * @return int
+ */
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE); // TODO: Remove
-    DEBUG("argc = '%d'", argc);
     if (!(argc == 4 || argc == 5)) {
         print_usage();
         return -1;
     }
-    char *register_pipe_name = argv[1];
 
-    char *pipe_name = argv[2];
-
-    DEBUG("Register pipe name = '%s'", register_pipe_name);
+    char *register_pipe_name = argv[1]; // Pipe to send the requests
+    char *pipe_name = argv[2];          // Pipe to receive the responses
     char *operation = argv[3];
-    DEBUG("Operation = '%s'", operation);
 
     if (STR_MATCH(operation, "create") && argc == 5) {
+        // Create a box
         char *box_name = argv[4];
         create_box(register_pipe_name, pipe_name, box_name);
-    }
-    // We could allow more arguments and just ignore them,
-    // but it's better to inform the user of the correct CLI usage
-    else if (STR_MATCH(operation, "remove") && argc == 5) {
+    } else if (STR_MATCH(operation, "remove") && argc == 5) {
+        // Remove a box
         char *box_name = argv[4];
         remove_box(register_pipe_name, pipe_name, box_name);
     } else if (STR_MATCH(operation, "list") && argc == 4) {
+        // List the boxes
         list_boxes(register_pipe_name, pipe_name);
     } else {
+        // Invalid operation
         print_usage();
+        unlink(pipe_name);
         return -1;
     }
+    unlink(pipe_name);
     return 0;
 }
