@@ -1,6 +1,7 @@
 #ifndef __PRODUCER_CONSUMER_H__
 #define __PRODUCER_CONSUMER_H__
 
+#include "protocols.h"
 #include <pthread.h>
 #include <stdint.h>
 

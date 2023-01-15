@@ -31,9 +31,13 @@ static void print_usage() {
 }
 
 int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
+    DEBUG("start list_boxes");
     // Sends the request to the mbroker
     list_boxes_request_proto_t *request =
         list_boxes_request_proto(client_pipe_name);
+
+    create_pipe(client_pipe_name);
+
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, LIST_BOXES_REQUEST, request);
 
@@ -42,14 +46,11 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     list_boxes_response_proto_t **responses =
         calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
 
-    // Creates the pipe
-    create_pipe(client_pipe_name);
-
     // Reads all messages
     int rx = open_pipe(client_pipe_name, O_RDONLY);
 
     // Breaks in the last box or if there was an error in the server side
-    while (1) {
+    while (true) {
         // temporary int opcode
         int t_opcode = 0;
         ssize_t rs = read(rx, &t_opcode, sizeof(uint8_t));
@@ -78,46 +79,47 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
     // Sorts all things
     DEBUG("Sorting boxes");
-    qsort(responses, MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t),
+    qsort(responses, curr_index + 1, sizeof(list_boxes_response_proto_t),
           cmp_response);
 
     // Prints all boxes
     DEBUG("Printing boxes");
-    for (size_t i = 0; i < curr_index; i++) {
-        DEBUG("Printing box at '%lu'", i);
-        list_boxes_response_proto_t *res = responses[i];
-        fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
-                res->n_publishers, res->n_subscribers);
+    DEBUG("current index finalized at %ld", curr_index);
+    if (curr_index == 1 && strlen(responses[0]->box_name) == 0) {
+        fprintf(stdout, "NO BOXES FOUND\n");
+    } else {
+        for (size_t i = 0; i < curr_index; i++) {
+            DEBUG("Printing box at '%lu'", i);
+            list_boxes_response_proto_t *res = responses[i];
+            fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
+                    res->n_publishers, res->n_subscribers);
+        }
     }
-
     // Removes the pipe
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     return 0;
 }
 
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
-    DEBUG("create_box(...) start")
-    // Sends the request to the mbroker
+    DEBUG("start create_box...");
+    // Send the request to the mbroker
+    DEBUG("box_name = '%s'", box_name);
     request_proto_t *request = request_proto(client_pipe_name, box_name);
+
+    create_pipe(client_pipe_name);
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, CREATE_BOX_REQUEST, request);
-
-    DEBUG("Creating pipe %s", client_pipe_name);
-    create_pipe(client_pipe_name);
-    DEBUG("Finished creating pipe");
-
-    // Waits for the mbroker to send a response
-    DEBUG("Opening client pipe %s", client_pipe_name);
     int rx = open_pipe(client_pipe_name, O_RDONLY);
+
     uint8_t opcode = 0;
     DEBUG("Waiting for mbroker's response");
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Failed to read op code");
 
     response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker, print it
     if (response->return_code != 0) {
@@ -131,18 +133,20 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
 
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
+    DEBUG("start remove_box...");
     // Send the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
+
+    create_pipe(client_pipe_name);
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, REMOVE_BOX_REQUEST, request);
+    int rx = open_pipe(client_pipe_name, O_RDONLY);
 
-    // Waits for a response
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
     uint8_t opcode = 0;
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Invalid read size");
     response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
-    ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
+    ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker side
     if (response->return_code != 0) {

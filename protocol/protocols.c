@@ -1,3 +1,7 @@
+#include "protocols.h"
+#include "betterassert.h"
+#include "logging.h"
+#include "utils.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,9 +11,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "betterassert.h"
-#include "logging.h"
-#include "protocols.h"
+void response_proto_t_cleanup(response_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
 
 // Reads an opcode from an open named pipe.
 //  -1 on fail.
@@ -28,7 +32,8 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     DEBUG("Got opcode %d", opcode);
     size_t size = proto_size(opcode) + sizeof(uint8_t);
-    unsigned char *final = calloc(1, size);
+    unsigned char *final __attribute__((cleanup(ustr_cleanup))) =
+        calloc(1, size);
     DEBUG("Alloc size %lu", size);
     uint8_t saved_opcode;
 
@@ -43,22 +48,20 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     // Panic if write failed, not due to an EPIPE.
     if (ret != size) {
         if (errno == EPIPE) {
-            free(final);
             return -1;
         }
         PANIC("Failed to write proto");
     }
     // == size
     //, "Failed to write proto");
-    free(final);
     return 0;
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
-    int u_rslt = unlink(npipe_path);
-    if (u_rslt == -1 && errno != ENOENT) {
-        PANIC("An error ocurred while attempting to unlink named pipe: '%s'",
-              strerror(errno));
+    if (unlink(npipe_path) == -1 && errno != ENOENT) {
+        PANIC(
+            "An error ocurred while attempting to unlink named pipe, err='%s'",
+            strerror(errno));
     }
     ALWAYS_ASSERT(mkfifo(npipe_path, MKFIFO_PERMS) == 0,
                   "Failed to create client named pipe, error: '%s'",
@@ -67,28 +70,30 @@ void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
 
 int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
     int fd = open(npipe_path, _flag);
-    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe");
+    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe '%s', err='%s'",
+                  npipe_path, strerror(errno));
     return fd;
 }
 
 void *parse_protocol(const int rx, const uint8_t opcode) {
     DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
-    void *protocol = malloc(proto_sz);
+    void *protocol = calloc(1, proto_sz);
     ssize_t sz = read(rx, protocol, proto_sz);
-    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol");
+    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
+                  strerror(errno));
     return protocol;
 }
 
 void *request_proto(const char *client_named_pipe_path, const char *box_name) {
-    request_proto_t *p = malloc(sizeof(request_proto_t));
+    request_proto_t *p = calloc(1, sizeof(request_proto_t));
     strcpy(p->box_name, box_name);
     strcpy(p->client_named_pipe_path, client_named_pipe_path);
     return p;
 }
 
 void *response_proto(int32_t return_code, const char *error_message) {
-    response_proto_t *p = malloc(sizeof(response_proto_t));
+    response_proto_t *p = calloc(1, sizeof(response_proto_t));
     p->return_code = return_code;
     strcpy(p->error_msg, error_message);
     return p;
@@ -106,7 +111,7 @@ void *list_boxes_response_proto(const uint8_t last, const char *box_name,
                                 const uint64_t n_publishers,
                                 const uint64_t n_subscribers) {
     list_boxes_response_proto_t *p =
-        malloc(sizeof(list_boxes_response_proto_t));
+        calloc(1, sizeof(list_boxes_response_proto_t));
     p->last = last;
     p->box_size = box_size;
     p->n_publishers = n_publishers;

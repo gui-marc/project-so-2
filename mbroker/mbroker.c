@@ -66,27 +66,18 @@ int main(int argc, char **argv) {
         PANIC("failed to create queue\n");
     }
 
-    // Remove the pipe if it does not exist
-    if (unlink(register_pipe_name) != 0 && errno != ENOENT) {
-        PANIC("failed to unlink fifo: %s\n", register_pipe_name);
-    }
-
-    // Create named pipe (fifo)
-    if (mkfifo(register_pipe_name, MKFIFO_PERMS) != 0) {
-        PANIC("mkfifo failed: %s\n", register_pipe_name);
-    }
+    // create_pipe unlinks existing pipe and does asserts.
+    create_pipe(register_pipe_name);
 
     // Create threads
     pthread_t threads[max_sessions];
-    void **args = calloc(2, sizeof(void *));
+    void **args = calloc(2, sizeof(char *));
     args[0] = &pc_queue;
     args[1] = &box_holder;
     for (int i = 0; i < max_sessions; i++) {
         DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, args);
     }
-    // free(args);
-
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");
     int rx = open(register_pipe_name, O_RDONLY);
@@ -117,7 +108,7 @@ int main(int argc, char **argv) {
 
         void *protocol = parse_protocol(rx, prot_code);
 
-        queue_obj_t *obj = malloc(sizeof(queue_obj_t));
+        queue_obj_t *obj = calloc(1, sizeof(queue_obj_t));
 
         obj->opcode = prot_code;
         obj->protocol = protocol;

@@ -2,10 +2,10 @@
 #define __BOX_METADATA_T_H__
 
 #include "../protocol/protocols.h"
+#include "utils.h"
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
-
 /**
  * @brief Represents a box in the mbroker. Contains all info related to the box.
  */
