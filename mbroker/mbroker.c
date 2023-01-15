@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
-        // A dummy writer, to avoid active wait
+        // A dummy writer, to avoid active wait - we never actually use it.
         const int dummy_fd = open(register_pipe_name, O_WRONLY);
         DEBUG("dummy_fd = %d", dummy_fd);
         DEBUG("Read proto code %u", prot_code);
