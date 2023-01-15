@@ -55,10 +55,10 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
-    int u_rslt = unlink(npipe_path);
-    if (u_rslt == -1 && errno != ENOENT) {
-        PANIC("An error ocurred while attempting to unlink named pipe: '%s'",
-              strerror(errno));
+    if (unlink(npipe_path) == -1 && errno != ENOENT) {
+        PANIC(
+            "An error ocurred while attempting to unlink named pipe, err='%s'",
+            strerror(errno));
     }
     ALWAYS_ASSERT(mkfifo(npipe_path, MKFIFO_PERMS) == 0,
                   "Failed to create client named pipe, error: '%s'",
@@ -67,7 +67,8 @@ void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
 
 int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
     int fd = open(npipe_path, _flag);
-    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe");
+    ALWAYS_ASSERT(fd != -1, "Failed to open named pipe '%s', err='%s'",
+                  npipe_path, strerror(errno));
     return fd;
 }
 
@@ -76,7 +77,8 @@ void *parse_protocol(const int rx, const uint8_t opcode) {
     size_t proto_sz = proto_size(opcode);
     void *protocol = malloc(proto_sz);
     ssize_t sz = read(rx, protocol, proto_sz);
-    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol");
+    ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
+                  strerror(errno));
     return protocol;
 }
 

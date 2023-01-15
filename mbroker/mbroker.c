@@ -66,15 +66,8 @@ int main(int argc, char **argv) {
         PANIC("failed to create queue\n");
     }
 
-    // Remove the pipe if it does not exist
-    if (unlink(register_pipe_name) != 0 && errno != ENOENT) {
-        PANIC("failed to unlink fifo: %s\n", register_pipe_name);
-    }
-
-    // Create named pipe (fifo)
-    if (mkfifo(register_pipe_name, MKFIFO_PERMS) != 0) {
-        PANIC("mkfifo failed: %s\n", register_pipe_name);
-    }
+    // create_pipe unlinks existing pipe and does asserts.
+    create_pipe(register_pipe_name);
 
     // Create threads
     pthread_t threads[max_sessions];

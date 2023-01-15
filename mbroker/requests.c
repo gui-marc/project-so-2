@@ -46,7 +46,7 @@ void parse_request(queue_obj_t *obj, box_holder_t *box_holder) {
     case LIST_BOXES_REQUEST:
         list_boxes(obj->protocol, box_holder);
         break;
-    //These are not valid opcodes to receive at this stage.
+    // These are not valid opcodes to receive at this stage.
     case REMOVE_BOX_RESPONSE:
     case LIST_BOXES_RESPONSE:
     case PUBLISHER_MESSAGE:
