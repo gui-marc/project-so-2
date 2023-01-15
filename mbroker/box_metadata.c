@@ -30,6 +30,7 @@ box_metadata_t *box_metadata_create(const char *name,
 }
 
 void box_metadata_destroy(box_metadata_t *box) {
+    DEBUG("Destroying mutexes");
     pthread_mutex_destroy(&box->has_publisher_lock);
     pthread_mutex_destroy(&box->subscribers_lock);
     pthread_mutex_destroy(&box->publisher_idx_lock);
@@ -37,8 +38,7 @@ void box_metadata_destroy(box_metadata_t *box) {
     // pthread_mutex_destroy(&box->read_condvar_lock);
     pthread_mutex_destroy(&box->total_message_size_lock);
     pthread_cond_destroy(&box->read_condvar);
-    free(box->name);
-    free(box->subscribers);
+    DEBUG("Finished destroying mutexes");
     free(box);
 }
 
@@ -76,6 +76,7 @@ int box_holder_remove(box_holder_t *holder, const char *name) {
     DEBUG("Removing box %s", name);
     for (size_t i = 0; i < holder->current_size; i++) {
         box_metadata_t *box = holder->boxes[i];
+        DEBUG("For loop in box '%s'", box->name);
         if (strcmp(box->name, name) == 0) {
             holder->boxes[i] = NULL;
             box_metadata_destroy(box);

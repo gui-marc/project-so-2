@@ -195,20 +195,26 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     while (true) {
         // Waits for a new message
         pthread_mutex_lock(&box->total_message_size_lock);
-        while (box->total_message_size > bytes_read) {
+        while (box->total_message_size <= bytes_read) {
+            DEBUG("Waiting for read condition with current size: %lu of %lu",
+                  bytes_read, box->total_message_size);
             pthread_cond_wait(&box->read_condvar,
                               &box->total_message_size_lock);
         }
         // Read remaining bytes
+        DEBUG("Started reading messages");
         msg_buf = buf_og;
         tfs_read(fd, msg_buf, box->total_message_size - bytes_read);
         while (box->total_message_size > bytes_read) {
+            DEBUG("Entering second while loop");
             strcpy(tmp_msg, msg_buf);
             to_write = strlen(msg_buf) + 1;
             msg = message_proto(tmp_msg);
+            DEBUG("Sending message: %s", msg->msg);
             send_proto_string(pipe_fd, SUBSCRIBER_MESSAGE, msg);
             msg_buf += to_write;
             bytes_read += to_write;
+            DEBUG("Bytes read is now: %lu", bytes_read);
         }
 
         // acho que aqui é uma condição para "fechar" o subscriber
@@ -303,22 +309,6 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
     DEBUG("Finished removing box");
 
-    if (box_holder_remove(box_holder, request->box_name) == 0) {
-        // Box was removed successfully
-        response_proto_t *res = response_proto(0, "\0");
-        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(res);
-    } else {
-        // Error while removing box
-        char *error_msg = calloc(MSG_SIZE, sizeof(char));
-        sprintf(error_msg, "Failed to remove box with name: %s",
-                request->box_name);
-        response_proto_t *res = response_proto(0, error_msg);
-        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(error_msg);
-        free(res);
-    }
-
     // Todo: close all related subscribers and publishers
     if (box_holder_remove(box_holder, request->box_name) == 0 &&
         remove_failed == false) {
@@ -335,9 +325,9 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
             calloc(MSG_SIZE, sizeof(char));
         snprintf(error_msg, MSG_SIZE, "Failed to remove box with name: %s",
                  request->box_name);
-        response_proto_t *res
-            __attribute__((cleanup(response_proto_t_cleanup))) =
-                response_proto(-1, error_msg);
+
+        // Removed attribute cleanup
+        response_proto_t *res = response_proto(-1, error_msg);
 
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
     }

@@ -19,6 +19,7 @@ void sigint_handler() {
 }
 
 int main(int argc, char **argv) {
+    set_log_level(LOG_VERBOSE);
     if (argc != 4) {
         fprintf(stderr,
                 "usage: sub <register_pipe_name> <pipe_name> <box_name>\n");
@@ -56,11 +57,14 @@ int main(int argc, char **argv) {
 
     // Waits until the
     while (!sigint_called) {
+        DEBUG("Receiving messages...");
         uint8_t opcode = recv_opcode(rx);
+        DEBUG("Received protocol %d", opcode);
         // If it was actually a message
         if (opcode != 0) {
             basic_msg_proto_t *msg = parse_protocol(rx, opcode);
             fprintf(stdout, "%s\n", msg->msg);
+            DEBUG("Received message %s", msg->msg);
         }
     }
     // fprintf(stdout, "")  //FIXME: count nº of messages and print them here
