@@ -76,7 +76,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     DEBUG("Starting register_publisher for client_pipe '%s'",
           request->client_named_pipe_path);
-    int pipe_fd = open_pipe(request->client_named_pipe_path, O_RDONLY);
+    int pipe_fd = open_pipe(request->client_named_pipe_path, O_RDONLY, true);
 
     // Represents a path to the box in the TFS
     char *box_path __attribute__((cleanup(str_cleanup))) =
@@ -178,7 +178,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
 
     // Opens the pipe to send messages to the client
-    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
+    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY, true);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
 
     // No box was found with the given box_name
@@ -258,7 +258,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     create_box_proto_t *request = (create_box_proto_t *)protocol;
 
     // Opens the pipe to send information to the client
-    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
+    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY, true);
 
     // Search for the box in the box_holder
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
@@ -319,8 +319,8 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
-
-    int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
+    create_pipe(request->client_named_pipe_path);
+    int wx = open_pipe(request->client_named_pipe_path, O_WRONLY, true);
 
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
@@ -365,7 +365,7 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
 
-    int wr = open_pipe(request->client_named_pipe_path, O_WRONLY);
+    int wr = open_pipe(request->client_named_pipe_path, O_WRONLY, true);
 
     pthread_mutex_lock(&box_holder->lock);
 

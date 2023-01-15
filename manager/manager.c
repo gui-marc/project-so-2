@@ -69,7 +69,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     // Creates the pipe to receive the response
     create_pipe(client_pipe_name);
 
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, LIST_BOXES_REQUEST, request);
 
     size_t curr_index = 0;
@@ -78,13 +78,13 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
         gg_calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
 
     // Reads all messages
-    int rx = open_pipe(client_pipe_name, O_RDONLY);
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
 
     // Breaks in the last box or if there was an error in the server side
     while (true) {
         // temporary int opcode
         int t_opcode = 0;
-        ssize_t rs = gg_read(rx, &t_opcode, sizeof(uint8_t));
+        ssize_t rs = gg_read(rx, &t_opcode, sizeof(uint8_t), false);
 
         if (t_opcode == EOF) {
             WARN("Error in the server side");
@@ -145,15 +145,15 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     create_pipe(client_pipe_name);
 
     // Sends the request to create a box
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, CREATE_BOX_REQUEST, request);
 
     // Open the pipe to receive the response
-    int rx = open_pipe(client_pipe_name, O_RDONLY);
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
 
     uint8_t opcode = 0;
     DEBUG("Waiting for mbroker's response");
-    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t));
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t), false);
     ALWAYS_ASSERT(rs != -1, "Failed to read op code");
 
     response_proto_t *response
@@ -188,15 +188,15 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     create_pipe(client_pipe_name);
 
     // Sends the request to remove a box
-    int wx = open_pipe(server_pipe_name, O_WRONLY);
+    int wx = open_pipe(server_pipe_name, O_WRONLY, true);
     send_proto_string(wx, REMOVE_BOX_REQUEST, request);
 
     // Open the pipe to receive the response
-    int rx = open_pipe(client_pipe_name, O_RDONLY);
+    int rx = open_pipe(client_pipe_name, O_RDONLY, true);
 
     // The response protocol code
     uint8_t opcode = 0;
-    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t));
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t), false);
     ALWAYS_ASSERT(rs != -1, "Invalid read size");
     response_proto_t *response
         __attribute__((cleanup(response_proto_t_cleanup))) =

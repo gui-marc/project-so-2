@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -144,7 +145,8 @@ void *parse_protocol(const int rx, const uint8_t opcode);
  * @param _flags flags to open the pipe
  * @return int the file descriptor
  */
-int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flags);
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flags,
+              bool ignore_eintr);
 
 /**
  * @brief Creates a protocol for a request

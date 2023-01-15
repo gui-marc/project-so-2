@@ -39,13 +39,13 @@ int main(int argc, char **argv) {
     create_pipe(pipe_name);
 
     DEBUG("Opening register pipe.");
-    int regpipe_fd = open_pipe(register_pipe_name, O_WRONLY);
+    int regpipe_fd = open_pipe(register_pipe_name, O_WRONLY, true);
 
     DEBUG("Sent register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(regpipe_fd, REGISTER_PUBLISHER, request);
     gg_close(regpipe_fd);
     DEBUG("Opening client pipe...");
-    int pipe_fd = open_pipe(pipe_name, O_WRONLY);
+    int pipe_fd = open_pipe(pipe_name, O_WRONLY, true);
 
     char *proto_msg;
     bool to_continue = true;

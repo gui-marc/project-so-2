@@ -52,11 +52,11 @@ int main(int argc, char **argv) {
 
     DEBUG("client_named_pipe: %s\n", request->client_named_pipe_path);
 
-    int wx = open_pipe(register_pipe_name, O_WRONLY);
+    int wx = open_pipe(register_pipe_name, O_WRONLY, true);
 
     send_proto_string(wx, REGISTER_SUBSCRIBER, request);
 
-    int rx = open_pipe(pipe_name, O_RDONLY);
+    int rx = open_pipe(pipe_name, O_RDONLY, true);
     ALWAYS_ASSERT(rx != -1, "Failed to open pipe %s", pipe_name);
 
     // Waits until the

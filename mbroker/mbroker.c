@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
 
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");
-    int rx = open_pipe(register_pipe_name, O_RDONLY);
+    int rx = open_pipe(register_pipe_name, O_RDONLY, false);
 
     DEBUG("Finished opening register pipe");
     int dummy_fd = -1;
@@ -93,10 +93,11 @@ int main(int argc, char **argv) {
     while (must_exit == 0) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
-        ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t));
+        ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t), true);
         // A dummy writer, to avoid active wait - we never actually use it.
-        dummy_fd = (dummy_fd == -1) ? open_pipe(register_pipe_name, O_WRONLY)
-                                    : dummy_fd;
+        dummy_fd = (dummy_fd == -1)
+                       ? open_pipe(register_pipe_name, O_WRONLY, false)
+                       : dummy_fd;
         DEBUG("dummy_fd = %d", dummy_fd);
         DEBUG("Read proto code %u", prot_code);
 

@@ -30,7 +30,7 @@ uint8_t recv_opcode(const int fd) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t buf_size = sizeof(uint8_t);
 
-    if (gg_read(fd, &opcode, buf_size) != buf_size) {
+    if (gg_read(fd, &opcode, buf_size, false) != buf_size) {
         WARN("Possible wrong opcode");
     }
 
@@ -76,8 +76,9 @@ void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
                   strerror(errno));
 }
 
-int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
-    int fd = gg_open(npipe_path, _flag);
+int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag,
+              bool ignore_eintr) {
+    int fd = gg_open(npipe_path, _flag, ignore_eintr);
     ALWAYS_ASSERT(fd != -1, "Failed to open named pipe '%s', err='%s'",
                   npipe_path, strerror(errno));
     return fd;
@@ -86,7 +87,7 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
 void *parse_protocol(const int rx, const uint8_t opcode) {
     size_t proto_sz = proto_size(opcode);
     void *protocol = gg_calloc(1, proto_sz);
-    ssize_t sz = gg_read(rx, protocol, proto_sz);
+    ssize_t sz = gg_read(rx, protocol, proto_sz, false);
     ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
                   strerror(errno));
     return protocol;

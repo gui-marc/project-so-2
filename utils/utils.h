@@ -11,11 +11,11 @@ void str_cleanup(char **ptr);
 
 void ustr_cleanup(unsigned char **ptr);
 
-int gg_open(const char *path, int flag);
+int gg_open(const char *path, int flag, bool ignore_eintr);
 
 void gg_close(const int fd);
 
-ssize_t gg_read(const int fd, void *buf, size_t count);
+ssize_t gg_read(const int fd, void *buf, size_t count, bool ignore_eintr);
 
 void *gg_calloc(size_t n, size_t size);
 

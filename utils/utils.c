@@ -36,15 +36,15 @@ void ustr_cleanup(unsigned char **ptr) { mem_cleanup((void **)ptr); }
  * Also contains functions to avoid common pitfalls (e.g double free).
  * @return -1 on error, 0 on success.
  */
-int gg_open(const char *path, int flag) {
+int gg_open(const char *path, int flag, bool ignore_eintr) {
     int r = -1;
     while (true) {
         r = open(path, flag);
         if (r != -1) {
             return r;
         }
-        if (errno == EINTR) {
-            DEBUG("Got EINTR, retrying");
+        if (errno == EINTR && ignore_eintr == true) {
+            DEBUG("Got EINTR and ignore_eintr = true, retrying");
             continue;
         } else {
             return r;
@@ -78,15 +78,15 @@ void gg_close(const int fd) {
     return;
 }
 
-ssize_t gg_read(const int fd, void *a_buf, size_t count) {
+ssize_t gg_read(const int fd, void *a_buf, size_t count, bool ignore_eintr) {
     ssize_t r = -1;
     while (true) {
         r = read(fd, a_buf, count);
         if (r != -1) {
             return r;
         }
-        if (errno == EINTR) {
-            DEBUG("Got EINTR, retrying");
+        if (errno == EINTR && ignore_eintr == true) {
+            DEBUG("Got EINTR and ignore_eintr = true, retrying");
             continue;
         } else {
             return r;
