@@ -29,8 +29,6 @@
 
 uint8_t sigint_called = 0;
 
-static box_holder_t box_holder;
-
 void sigint_handler() {
     DEBUG("Caught SIGINT! Exiting.");
 
@@ -43,6 +41,8 @@ int main(int argc, char **argv) {
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
     }
+
+    box_holder_t box_holder;
 
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
@@ -78,10 +78,14 @@ int main(int argc, char **argv) {
 
     // Create threads
     pthread_t threads[max_sessions];
+    void **args = calloc(2, sizeof(void *));
+    args[0] = &pc_queue;
+    args[1] = &box_holder;
     for (int i = 0; i < max_sessions; i++) {
         DEBUG("Creating thread %d", i);
-        pthread_create(&threads[i], NULL, listen_for_requests, &pc_queue);
+        pthread_create(&threads[i], NULL, listen_for_requests, args);
     }
+    // free(args);
 
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");

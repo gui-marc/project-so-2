@@ -14,34 +14,37 @@
 #include "protocols.h"
 #include "requests.h"
 
-void *listen_for_requests(void *queue) {
+void *listen_for_requests(void *args) {
+    void **real_args = (void **)args;
+    pc_queue_t *queue = (pc_queue_t *)real_args[0];
+    box_holder_t *box_holder = (box_holder_t *)real_args[1];
     set_log_level(LOG_VERBOSE);
     while (true) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         DEBUG("Dequeued object with code %u", obj->opcode);
-        parse_request(obj);
+        parse_request(obj, box_holder);
         free(obj->protocol);
         free(obj);
     }
     return NULL;
 }
 
-void parse_request(queue_obj_t *obj) {
+void parse_request(queue_obj_t *obj, box_holder_t *box_holder) {
     switch (obj->opcode) {
     case REGISTER_PUBLISHER:
-        register_publisher(obj->protocol);
+        register_publisher(obj->protocol, box_holder);
         break;
     case REGISTER_SUBSCRIBER:
-        register_subscriber(obj->protocol);
+        register_subscriber(obj->protocol, box_holder);
         break;
     case CREATE_BOX_REQUEST:
-        create_box(obj->protocol);
+        create_box(obj->protocol, box_holder);
         break;
     case REMOVE_BOX_REQUEST:
-        remove_box(obj->protocol);
+        remove_box(obj->protocol, box_holder);
         break;
     case LIST_BOXES_REQUEST:
-        list_boxes(obj->protocol);
+        list_boxes(obj->protocol, box_holder);
         break;
     default:
         WARN("invalid protocol code\n");
@@ -49,7 +52,7 @@ void parse_request(queue_obj_t *obj) {
     }
 }
 
-void register_publisher(void *protocol) {
+void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     DEBUG("Starting register_publisher for client_pipe '%s'",
           request->client_named_pipe_path);
@@ -58,7 +61,7 @@ void register_publisher(void *protocol) {
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, TFS_O_APPEND);
-    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     DEBUG("Checking if box '%s' exists.", request->box_name);
     // If we couldn't open the box for whatever reason,
     // exit.
@@ -134,13 +137,13 @@ void register_publisher(void *protocol) {
     return;
 }
 
-void register_subscriber(void *protocol) {
+void register_subscriber(void *protocol, box_holder_t *box_holder) {
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
     int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1,
                   "An error ocurred while opening subscriber pipe %s",
                   request->client_named_pipe_path);
-    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
         // free(response_proto);
         close(pipe_fd);
@@ -193,29 +196,35 @@ void register_subscriber(void *protocol) {
     pthread_mutex_unlock(&box->subscribers_count_lock);
 }
 
-void create_box(void *protocol) {
+void create_box(void *protocol, box_holder_t *box_holder) {
     DEBUG("Creating box...")
     create_box_proto_t *request = (create_box_proto_t *)protocol;
 
     DEBUG("opening client named pipe %s", request->client_named_pipe_path);
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
-    box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
 
     if (box != NULL) {
+        DEBUG("No box was found");
         response_proto_t *res = response_proto(-1, ERR_BOX_ALREADY_EXISTS);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         close(pipe_fd);
         free(res);
         return;
     }
+
     // Create the new file for the box
     char box_path[BOX_NAME_SIZE + 1];
-    strcpy(box_path, request->box_name);
     strcat(box_path, "/");
+    strcat(box_path, request->box_name);
+
+    DEBUG("Saving box at path: %s", box_path);
     int fd = tfs_open(box_path, TFS_O_CREAT | TFS_O_TRUNC);
+    DEBUG("Finished saving box");
 
     if (fd == -1) {
+        DEBUG("Error while saving box in the tfs");
         response_proto_t *res = response_proto(-1, ERR_BOX_CREATION);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         tfs_close(fd);
@@ -225,8 +234,10 @@ void create_box(void *protocol) {
 
     box_metadata_t *new_box =
         box_metadata_create(request->box_name, max_sessions);
-    box_holder_insert(&box_holder, new_box);
 
+    box_holder_insert(box_holder, new_box);
+
+    DEBUG("Created box successfully");
     response_proto_t *res = response_proto(0, "\0");
     send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
     close(pipe_fd);
@@ -234,15 +245,21 @@ void create_box(void *protocol) {
     return;
 }
 
-void remove_box(void *protocol) {
+void remove_box(void *protocol, box_holder_t *box_holder) {
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
 
+    char box_path[BOX_NAME_SIZE + 1] = {};
+    strcat(box_path, "/");
+    strcat(box_path, request->box_name);
+
     // Removes box from tfs
-    ALWAYS_ASSERT(tfs_unlink(request->box_name) == 0, "Failed to remove box");
+    DEBUG("Removing box '%s' from tfs", box_path);
+    ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
+    DEBUG("Finished removing box");
 
     int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
 
-    if (box_holder_remove(&box_holder, request->box_name) == 0) {
+    if (box_holder_remove(box_holder, request->box_name) == 0) {
         // Box was removed successfully
         response_proto_t *res = response_proto(0, "\0");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
@@ -263,20 +280,21 @@ void remove_box(void *protocol) {
     close(wx);
 }
 
-void list_boxes(void *protocol) {
+void list_boxes(void *protocol, box_holder_t *box_holder) {
+    DEBUG("Listing boxes");
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
 
-    int wr = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
+    int wr = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
-    pthread_mutex_lock(&box_holder.lock);
+    pthread_mutex_lock(&box_holder->lock);
 
     // Send a response for each box
-    for (size_t i = 0; i < box_holder.current_size; i++) {
+    for (size_t i = 0; i < box_holder->current_size; i++) {
         // send each request
-        box_metadata_t *box = box_holder.boxes[i];
+        box_metadata_t *box = box_holder->boxes[i];
         uint8_t last = 0;
-        if (i == box_holder.current_size - 1) {
+        if (i == box_holder->current_size - 1) {
             last = 1;
         }
         pthread_mutex_lock(&box->total_message_size_lock);
@@ -289,11 +307,12 @@ void list_boxes(void *protocol) {
         pthread_mutex_unlock(&box->has_publisher_lock);
         pthread_mutex_unlock(&box->subscribers_count_lock);
 
+        DEBUG("Sending box %s", box->name);
         send_proto_string(wr, LIST_BOXES_RESPONSE, res);
     }
 
     // No boxes
-    if (box_holder.current_size == 0) {
+    if (box_holder->current_size == 0) {
         char *msg = calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
         list_boxes_response_proto_t *res =
             list_boxes_response_proto(1, msg, 0, false, 0);
@@ -301,7 +320,7 @@ void list_boxes(void *protocol) {
         free(msg);
     }
 
-    pthread_mutex_unlock(&box_holder.lock);
+    pthread_mutex_unlock(&box_holder->lock);
 
     close(wr);
 }

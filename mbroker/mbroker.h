@@ -3,8 +3,6 @@
 
 #include "box_metadata.h"
 
-static box_holder_t box_holder;
-
 static size_t max_sessions;
 
 #endif

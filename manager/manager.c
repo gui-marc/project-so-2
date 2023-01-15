@@ -12,12 +12,14 @@
 #include "protocols.h"
 #include "string.h"
 
+#define MAX_BOX_NAMES 1024
+
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
 static int cmp_response(const void *p1, const void *p2) {
     list_boxes_response_proto_t *r1 = (list_boxes_response_proto_t *)p1;
     list_boxes_response_proto_t *r2 = (list_boxes_response_proto_t *)p2;
-    return strcmp(r1->box_name, r2->box_name);
+    return strcmp(r2->box_name, r1->box_name);
 }
 
 static void print_usage() {
@@ -38,8 +40,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     size_t curr_index = 0;
     // Array for storing responses
     list_boxes_response_proto_t **responses =
-        calloc(tfs_default_params().max_inode_count,
-               sizeof(list_boxes_response_proto_t));
+        calloc(MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t));
 
     // Creates the pipe
     create_pipe(client_pipe_name);
@@ -65,6 +66,8 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
         list_boxes_response_proto_t *response =
             (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
 
+        DEBUG("Received box %s", response->box_name);
+
         responses[curr_index] = response;
         curr_index++;
 
@@ -74,11 +77,14 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     }
 
     // Sorts all things
-    qsort(responses, curr_index, sizeof(list_boxes_response_proto_t),
+    DEBUG("Sorting boxes");
+    qsort(responses, MAX_BOX_NAMES, sizeof(list_boxes_response_proto_t),
           cmp_response);
 
     // Prints all boxes
+    DEBUG("Printing boxes");
     for (size_t i = 0; i < curr_index; i++) {
+        DEBUG("Printing box at '%lu'", i);
         list_boxes_response_proto_t *res = responses[i];
         fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
                 res->n_publishers, res->n_subscribers);
@@ -87,7 +93,6 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     // Removes the pipe
     ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
 
-    fprintf(stdout, "OK\n");
     return 0;
 }
 
@@ -104,10 +109,13 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     DEBUG("Finished creating pipe");
 
     // Waits for the mbroker to send a response
+    DEBUG("Opening client pipe %s", client_pipe_name);
     int rx = open_pipe(client_pipe_name, O_RDONLY);
     uint8_t opcode = 0;
+    DEBUG("Waiting for mbroker's response");
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
-    ALWAYS_ASSERT(rs == sizeof(uint8_t), "Invalid read size");
+    ALWAYS_ASSERT(rs != -1, "Failed to read op code");
+
     response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
     ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
 
@@ -132,7 +140,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
     uint8_t opcode = 0;
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
-    ALWAYS_ASSERT(rs == sizeof(uint8_t), "Invalid read size");
+    ALWAYS_ASSERT(rs != -1, "Invalid read size");
     response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
     ALWAYS_ASSERT(remove(client_pipe_name) == 0, "Failed to remove pipe");
 

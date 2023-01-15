@@ -7,15 +7,19 @@
 
 box_metadata_t *box_metadata_create(const char *name,
                                     const size_t max_sessions) {
+    DEBUG("Creating box metadata for %s", name);
     box_metadata_t *box = malloc(sizeof(box_metadata_t));
     ALWAYS_ASSERT(box != NULL, "Failed to alloc box_metadata");
-    pthread_mutex_init(&box->has_publisher_lock, NULL);
-    pthread_mutex_init(&box->subscribers_lock, NULL);
-    pthread_mutex_init(&box->publisher_idx_lock, NULL);
-    pthread_mutex_init(&box->subscribers_count_lock, NULL);
-    // pthread_mutex_init(&box->read_condvar_lock, NULL);
-    pthread_mutex_init(&box->total_message_size_lock, NULL);
-    pthread_cond_init(&box->read_condvar, NULL);
+    ALWAYS_ASSERT(
+        pthread_mutex_init(&box->has_publisher_lock, NULL) == 0 &&
+            pthread_mutex_init(&box->subscribers_lock, NULL) == 0 &&
+            pthread_mutex_init(&box->publisher_idx_lock, NULL) == 0 &&
+            pthread_mutex_init(&box->subscribers_count_lock, NULL) == 0 &&
+            // pthread_mutex_init(&box->read_condvar_lock, NULL) == 0 &&
+            pthread_mutex_init(&box->total_message_size_lock, NULL) == 0 &&
+            pthread_cond_init(&box->read_condvar, NULL) == 0,
+        "Failed to init mutexes");
+
     strcpy(box->name, name);
     box->publisher_idx = 0;
     box->subscribers = calloc(max_sessions, sizeof(size_t));
@@ -39,10 +43,14 @@ void box_metadata_destroy(box_metadata_t *box) {
 }
 
 int box_holder_create(box_holder_t *holder, const size_t max_boxes) {
+    DEBUG("Holder: %p", holder);
     holder->current_size = 0;
     holder->max_size = max_boxes;
+    DEBUG("Creating box holder {%lu,%lu}", holder->current_size,
+          holder->max_size);
     holder->boxes = calloc(max_boxes, sizeof(box_metadata_t));
-    pthread_mutex_init(&holder->lock, NULL);
+    ALWAYS_ASSERT(pthread_mutex_init(&holder->lock, NULL) == 0,
+                  "Failed to init holder mutex");
     if (holder->boxes == NULL) {
         return -1; // failed to alloc boxes
     }
@@ -50,13 +58,17 @@ int box_holder_create(box_holder_t *holder, const size_t max_boxes) {
 }
 
 void box_holder_insert(box_holder_t *holder, box_metadata_t *box) {
-    pthread_mutex_lock(&holder->lock);
     DEBUG("Inserting box %s", box->name);
+    DEBUG("Holder: %p", holder);
+    pthread_mutex_lock(&holder->lock);
+    DEBUG("Passed holder lock");
     ALWAYS_ASSERT(holder->current_size < holder->max_size,
-                  "Already inserted max size of boxes");
+                  "Already inserted max size of boxes (%lu of %lu)",
+                  holder->current_size, holder->max_size);
     holder->boxes[holder->current_size] = box;
     holder->current_size++;
     pthread_mutex_unlock(&holder->lock);
+    DEBUG("Finished inserting box");
 }
 
 int box_holder_remove(box_holder_t *holder, const char *name) {
@@ -85,9 +97,10 @@ box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name) {
     for (size_t i = 0; i < holder->current_size; i++) {
         box_metadata_t *box = holder->boxes[i];
         if (strcmp(box->name, name) == 0) {
+            pthread_mutex_unlock(&holder->lock);
             return box; // found box
         }
     }
-    return NULL; // no box was found
     pthread_mutex_unlock(&holder->lock);
+    return NULL; // no box was found
 }
