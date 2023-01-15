@@ -27,14 +27,12 @@
 
 #define MAX_BOXES 1024
 
-// Variable used to stop listening for requests
-uint8_t must_exit = 0;
 
 /**
  * @brief Set the app to end
  *
  */
-void sig_handler() { must_exit = 1; }
+void sig_handler() { exit(0);  }
 
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
@@ -90,10 +88,10 @@ int main(int argc, char **argv) {
     DEBUG("Finished opening register pipe");
     int dummy_fd = -1;
     // Listen to events in the register
-    while (must_exit == 0) {
+    while (true) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
-        ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t), true);
+        ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t), false);
         // A dummy writer, to avoid active wait - we never actually use it.
         dummy_fd = (dummy_fd == -1)
                        ? open_pipe(register_pipe_name, O_WRONLY, false)
@@ -119,18 +117,6 @@ int main(int argc, char **argv) {
         pcq_enqueue(&pc_queue, obj);
     }
 
-    // Sends a signal to end each thread
-    for (size_t i = 0; i < max_sessions; i++) {
-        pthread_kill(threads[i], SIGUSR1);
-    }
-
-    // Waits for each thread to end
-    for (size_t i = 0; i < max_sessions; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    pcq_destroy(&pc_queue);
-    box_holder_destroy(&box_holder);
-    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS.");
-    DEBUG("Program finished successfully");
+    //Let operating system cleanup.
+    DEBUG("Program finished successfully.");
 }
