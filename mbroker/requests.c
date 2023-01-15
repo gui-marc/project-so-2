@@ -19,7 +19,7 @@ void *listen_for_requests(void *args) {
     void **real_args = (void **)args;
     pc_queue_t *queue = (pc_queue_t *)real_args[0];
     box_holder_t *box_holder = (box_holder_t *)real_args[1];
-    set_log_level(LOG_VERBOSE);
+    set_log_level(LOG_NORMAL);
     while (true) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         DEBUG("Dequeued object with code %u", obj->opcode);
@@ -299,9 +299,11 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
         response_proto_t *res =
-            response_proto(0, "Box with that name was not found");
+            response_proto(-1, "Box with that name was not found");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
         free(res);
+        close(wx);
+        return;
     }
 
     // Removes box from tfs
