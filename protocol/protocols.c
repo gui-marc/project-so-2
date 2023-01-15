@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@ uint8_t recv_opcode(const int fd) {
     ALWAYS_ASSERT(read(fd, &opcode, buf_size) == buf_size,
                   "Failed to read opcode");
     ALWAYS_ASSERT(opcode != 0, "Failed to convert opcode");
+    DEBUG("Received the opcode: %u", opcode);
     return opcode;
 }
 
@@ -42,10 +44,14 @@ void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
-    ALWAYS_ASSERT(unlink(npipe_path) == 0,
-                  "Failed to cleanup/unlink client named pipe.");
+    int u_rslt = unlink(npipe_path);
+    if (u_rslt == -1 && errno != ENOENT) {
+        PANIC("An error ocurred while attempting to unlink named pipe: '%s'",
+              strerror(errno));
+    }
     ALWAYS_ASSERT(mkfifo(npipe_path, MKFIFO_PERMS) == 0,
-                  "Failed to create client named pipe.");
+                  "Failed to create client named pipe, error: '%s'",
+                  strerror(errno));
 }
 
 int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {

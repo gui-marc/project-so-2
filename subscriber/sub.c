@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,13 @@
 #include "betterassert.h"
 #include "logging.h"
 #include "protocols.h"
+
+int sigint_called = 0;
+
+void sigint_handler() {
+    DEBUG("Caught SIGINT!");
+    sigint_called = 1;
+}
 
 int main(int argc, char **argv) {
     if (argc != 4) {
@@ -21,6 +29,11 @@ int main(int argc, char **argv) {
     char *box_name = argv[3];
 
     ALWAYS_ASSERT(argc == 4, "Invalid usage");
+
+    create_pipe(pipe_name);
+
+    // Redefine SIGINT treatment
+    signal(SIGINT, sigint_handler);
 
     request_proto_t *request =
         (request_proto_t *)request_proto(pipe_name, box_name);
@@ -37,6 +50,19 @@ int main(int argc, char **argv) {
     ALWAYS_ASSERT(wx != -1, "Failed to open fifo");
 
     send_proto_string(wx, REGISTER_SUBSCRIBER, request);
+
+    int rx = open(pipe_name, O_RDONLY);
+    ALWAYS_ASSERT(rx != -1, "Failed to open pipe %s", pipe_name);
+
+    // Waits until the
+    while (!sigint_called) {
+        uint8_t opcode = recv_opcode(rx);
+        // If it was actually a message
+        if (opcode != 0) {
+            basic_msg_proto_t *msg = parse_protocol(rx, opcode);
+            fprintf(stdout, "%s\n", msg->msg);
+        }
+    }
 
     return 0;
 }

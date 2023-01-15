@@ -41,9 +41,11 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
         calloc(tfs_default_params().max_inode_count,
                sizeof(list_boxes_response_proto_t));
 
+    // Creates the pipe
+    create_pipe(client_pipe_name);
+
     // Reads all messages
-    // RG: O_RDONLY | O_CREAT faz sentido?
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
+    int rx = open_pipe(client_pipe_name, O_RDONLY);
 
     // Breaks in the last box or if there was an error in the server side
     while (1) {
@@ -91,13 +93,18 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
+    DEBUG("create_box(...) start")
     // Sends the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, CREATE_BOX_REQUEST, request);
 
+    DEBUG("Creating pipe %s", client_pipe_name);
+    create_pipe(client_pipe_name);
+    DEBUG("Finished creating pipe");
+
     // Waits for the mbroker to send a response
-    int rx = open_pipe(client_pipe_name, O_RDONLY | O_CREAT);
+    int rx = open_pipe(client_pipe_name, O_RDONLY);
     uint8_t opcode = 0;
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs == sizeof(uint8_t), "Invalid read size");

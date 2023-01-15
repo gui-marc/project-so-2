@@ -51,19 +51,24 @@ void parse_request(queue_obj_t *obj) {
 
 void register_publisher(void *protocol) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
+    DEBUG("Starting register_publisher for client_pipe '%s'",
+          request->client_named_pipe_path);
     // TODO: O_WRONLY | O_CREAT faz sentido sequer?
     int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     int fd = tfs_open(request->box_name, TFS_O_APPEND);
     box_metadata_t *box = box_holder_find_box(&box_holder, request->box_name);
+    DEBUG("Checking if box '%s' exists.", request->box_name);
     // If we couldn't open the box for whatever reason,
     // exit.
     if (fd == -1 || box == NULL) {
+        DEBUG("Box did not exist, quitting.")
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
         return;
     }
+    DEBUG("Passed box existence check.");
 
     pthread_mutex_lock(&box->has_publisher_lock);
     if (box->has_publisher == true) {

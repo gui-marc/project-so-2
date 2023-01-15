@@ -39,7 +39,6 @@ void box_metadata_destroy(box_metadata_t *box) {
 }
 
 int box_holder_create(box_holder_t *holder, const size_t max_boxes) {
-    DEBUG("Creating box holder");
     holder->current_size = 0;
     holder->max_size = max_boxes;
     holder->boxes = calloc(max_boxes, sizeof(box_metadata_t));

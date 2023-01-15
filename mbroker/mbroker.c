@@ -31,7 +31,11 @@ uint8_t sigint_called = 0;
 
 static box_holder_t box_holder;
 
-void sigint_handler() { sigint_called = 1; }
+void sigint_handler() {
+    DEBUG("Caught SIGINT! Exiting.");
+
+    exit(0);
+}
 
 int main(int argc, char **argv) {
     set_log_level(LOG_VERBOSE); // TODO: Remove
@@ -43,10 +47,11 @@ int main(int argc, char **argv) {
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     max_sessions = (size_t)atoi(max_sessions_str);
-
+    DEBUG("Creating box holder...")
     if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
         PANIC("Failed to create box holder\n");
     }
+    DEBUG("Done creating box holder.")
 
     // Bootstrap tfs file system
     ALWAYS_ASSERT(tfs_init(NULL) != -1, "Failed to initialize TFS");
@@ -79,16 +84,24 @@ int main(int argc, char **argv) {
     }
 
     // This waits to other process to write in the pipe
+    DEBUG("Opening register pipe");
     int rx = open(register_pipe_name, O_RDONLY);
     if (rx == -1) {
-        PANIC("failed to open register pipe: %s\n", register_pipe_name);
-        remove(register_pipe_name);
+        if (errno != EINTR) {
+            PANIC("failed to open register pipe: %s\n", register_pipe_name);
+            remove(register_pipe_name);
+        }
     }
+    DEBUG("Finshed opening register pipe");
 
-    // Listen to events in the register pipe
+    // Listen to events in the register
     while (sigint_called == 0) {
         uint8_t prot_code = 0;
+        DEBUG("Going to read from register pipe, may fall asleep.");
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
+        // A dummy writer, to avoid active wait
+        const int dummy_fd = open(register_pipe_name, O_WRONLY);
+        DEBUG("dummy_fd = %d", dummy_fd);
         DEBUG("Read proto code %u", prot_code);
 
         if (ret == 0) {
@@ -109,24 +122,4 @@ int main(int argc, char **argv) {
 
         pcq_enqueue(&pc_queue, obj);
     }
-    DEBUG("Caught SIGINT signal, cleaning up...");
-
-    // Wait for all threads to finish
-    for (int i = 0; i < max_sessions; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    // Closes the register pipe
-    close(rx);
-
-    // Removes the pipe
-    if (remove(register_pipe_name) != 0) {
-        PANIC("failed to remove named pipe: %s\n", register_pipe_name);
-    }
-
-    // Destroys the queue
-    pcq_destroy(&pc_queue);
-
-    // Destroys TFS
-    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS");
 }

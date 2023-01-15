@@ -127,6 +127,7 @@ void *pcq_dequeue(pc_queue_t *queue) {
         DEBUG("waiting on popper condition");
         pthread_cond_wait(&queue->pcq_popper_condvar,
                           &queue->pcq_current_size_lock);
+        DEBUG("done waiting on popper condition.");
     }
 
     // Pops the element at the head
