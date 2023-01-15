@@ -29,8 +29,6 @@ void box_metadata_destroy(box_metadata_t *box) {
     pthread_mutex_destroy(&box->publisher_idx_lock);
     pthread_mutex_destroy(&box->subscribers_count_lock);
     pthread_mutex_destroy(&box->total_message_size_lock);
-    pthread_cond_destroy(&box->read_condvar);
-    DEBUG("Finished destroying mutexes");
     gg_free((void **)&box);
 }
 
