@@ -63,6 +63,6 @@ int main(int argc, char **argv) {
             fprintf(stdout, "%s\n", msg->msg);
         }
     }
-
+    // fprintf(stdout, "")  //FIXME: count nº of messages and print them here
     return 0;
 }

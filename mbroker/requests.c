@@ -157,17 +157,24 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
 void register_subscriber(void *protocol, box_holder_t *box_holder) {
     DEBUG("register_subscriber started...");
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
-    int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
-    ALWAYS_ASSERT(pipe_fd != -1,
-                  "An error ocurred while opening subscriber pipe %s",
-                  request->client_named_pipe_path);
+    int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
+        DEBUG("Failed to find metadata box for %s", request->box_name);
         close(pipe_fd);
+        return;
     }
-    int fd = tfs_open(request->box_name, 0);
+    // Create the new file for the box
+    // TFS's max filename is 40, so we're good
+    char *box_path __attribute__((cleanup(str_cleanup))) =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+    strcpy(box_path, "/");
+    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
+    int fd = tfs_open(box_path, 0);
     if (fd == -1) {
+        DEBUG("Failed to open TFS file %s", box_path);
         close(pipe_fd);
+        return;
     }
 
     // Todo: change subscribers array (it is even needed?)
@@ -184,6 +191,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
         calloc(MSG_SIZE, sizeof(char));
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal or (todo) another condvar
+    DEBUG("Entering subscriber loop.");
     while (true) {
         // Waits for a new message
         pthread_mutex_lock(&box->total_message_size_lock);
@@ -214,6 +222,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     box->subscribers_count--;
     pthread_mutex_unlock(&box->subscribers_count_lock);
 }
+
 // FIXME: isto dá segmentation fault a remover uma caixa que não existe
 void create_box(void *protocol, box_holder_t *box_holder) {
     DEBUG("create_box started...");
