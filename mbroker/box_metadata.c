@@ -6,7 +6,6 @@
 #include "box_metadata.h"
 
 box_metadata_t *box_metadata_create(const char *name) {
-    DEBUG("Creating box metadata for %s", name);
     box_metadata_t *box = calloc(1, sizeof(box_metadata_t));
     ALWAYS_ASSERT(box != NULL, "Failed to alloc box_metadata");
     ALWAYS_ASSERT(

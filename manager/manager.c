@@ -61,11 +61,11 @@ static void print_usage() {
  * @return int 0 if is ok and -1 otherwise
  */
 int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
-    DEBUG("start list_boxes");
     // Sends the request to the mbroker
     list_boxes_request_proto_t *request =
         list_boxes_request_proto(client_pipe_name);
 
+    // Creates the pipe to receive the response
     create_pipe(client_pipe_name);
 
     int wx = open_pipe(server_pipe_name, O_WRONLY);
@@ -97,8 +97,6 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
         list_boxes_response_proto_t *response =
             (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
 
-        DEBUG("Received box %s", response->box_name);
-
         responses[curr_index] = response;
         curr_index++;
 
@@ -108,17 +106,13 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     }
 
     // Sorts all things
-    DEBUG("Sorting boxes");
     bubble_sort_responses(responses, curr_index);
 
     // Prints all boxes
-    DEBUG("Printing boxes");
-    DEBUG("current index finalized at %ld", curr_index);
     if (curr_index == 1 && strlen(responses[0]->box_name) == 0) {
         fprintf(stdout, "NO BOXES FOUND\n");
     } else {
         for (size_t i = 0; i < curr_index; i++) {
-            DEBUG("Printing box at '%lu'", i);
             list_boxes_response_proto_t *res = responses[i];
             fprintf(stdout, "%s %zu %zu %zu\n", res->box_name, res->box_size,
                     res->n_publishers, res->n_subscribers);
@@ -140,18 +134,20 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
  */
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
-    DEBUG("start create_box...");
     // Send the request to the mbroker
-    DEBUG("box_name = '%s'", box_name);
     request_proto_t *request = request_proto(client_pipe_name, box_name);
 
+    // Creates the pipe to receive the response
     create_pipe(client_pipe_name);
+
+    // Sends the request to create a box
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, CREATE_BOX_REQUEST, request);
+
+    // Open the pipe to receive the response
     int rx = open_pipe(client_pipe_name, O_RDONLY);
 
     uint8_t opcode = 0;
-    DEBUG("Waiting for mbroker's response");
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Failed to read op code");
 
@@ -178,16 +174,23 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
  */
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
-    DEBUG("start remove_box...");
     // Send the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
 
+    // Creates the pipe to receive the response
     create_pipe(client_pipe_name);
+
+    // Sends the request to remove a box
     int wx = open_pipe(server_pipe_name, O_WRONLY);
     send_proto_string(wx, REMOVE_BOX_REQUEST, request);
+
+    // Open the pipe to receive the response
     int rx = open_pipe(client_pipe_name, O_RDONLY);
 
+    // The response protocol code
     uint8_t opcode = 0;
+
+    // Waits for the response
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Invalid read size");
     response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
@@ -211,19 +214,14 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
  * @return int
  */
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE); // TODO: Remove
-    DEBUG("argc = '%d'", argc);
     if (!(argc == 4 || argc == 5)) {
         print_usage();
         return -1;
     }
-    char *register_pipe_name = argv[1];
 
-    char *pipe_name = argv[2];
-
-    DEBUG("Register pipe name = '%s'", register_pipe_name);
+    char *register_pipe_name = argv[1]; // Pipe to send the requests
+    char *pipe_name = argv[2];          // Pipe to receive the responses
     char *operation = argv[3];
-    DEBUG("Operation = '%s'", operation);
 
     if (STR_MATCH(operation, "create") && argc == 5) {
         // Create a box

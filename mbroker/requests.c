@@ -24,16 +24,16 @@ uint8_t sigusr_called = 0;
 void sigusr_handler() { sigusr_called = 1; }
 
 void *listen_for_requests(void *args) {
-    set_log_level(LOG_VERBOSE);
     void **real_args = (void **)args;
     pc_queue_t *queue = (pc_queue_t *)real_args[0];
     box_holder_t *box_holder = (box_holder_t *)real_args[1];
-    set_log_level(LOG_VERBOSE);
 
+    // Signal to finish the thread
     signal(SIGUSR1, sigusr_handler);
 
+    // While the thread is not ended
     while (sigusr_called == 0) {
-        DEBUG("Started dequeuing");
+        // Tries to read a request from the pcq
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         parse_request(obj, box_holder);
         free(obj->protocol);
@@ -74,8 +74,6 @@ void parse_request(queue_obj_t *obj, box_holder_t *box_holder) {
 
 void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
-    DEBUG("Starting register_publisher for client_pipe '%s'",
-          request->client_named_pipe_path);
 
     // Opens the pipe to send information to the publisher client
     int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
@@ -110,7 +108,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     // Verifies if is the only publisher looking at that box
     pthread_mutex_lock(&box->has_publisher_lock);
     if (box->has_publisher == true) {
-        DEBUG("Box already has a publisher. Quitting.");
+        WARN("Box already has a publisher. Quitting.");
         close(pipe_fd);
         tfs_close(fd);
         pthread_mutex_unlock(&box->has_publisher_lock);
@@ -130,7 +128,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     size_t written = 0;
     ssize_t wrote;
     size_t msg_len = 0;
-    DEBUG("Entering publisher loop.");
     while (true) {
         // This while loop ends when the pipe is closed (the user closed the
         // publisher client)
@@ -148,7 +145,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         wrote = tfs_write(fd, pub_msg->msg,
                           strlen(pub_msg->msg) + 1); //+1 to include \0
         if (wrote < 0) {
-            DEBUG("Wrote %lu", wrote);
             WARN("Error occurred in tfs_write publisher msg")
             break;
         } else {
@@ -178,7 +174,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
-    DEBUG("Leaving publisher");
     return;
 }
 
@@ -230,46 +225,36 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal
     while (must_break == 0) {
-        DEBUG("Entering subscriber loop.");
         // Waits for a new message
         pthread_mutex_lock(&box->total_message_size_lock);
         while (box->total_message_size <= bytes_read) {
-            DEBUG("Waiting for read condition with current size: %lu of %lu",
-                  bytes_read, box->total_message_size);
+            // Waits for the message size to change
             pthread_cond_wait(&box->read_condvar,
                               &box->total_message_size_lock);
         }
 
         // Read remaining bytes
-        DEBUG("Started reading messages");
         msg_buf = buf_og;
         tfs_read(fd, msg_buf, box->total_message_size - bytes_read);
         while (box->total_message_size > bytes_read) {
-            DEBUG("Entering second while loop");
             strcpy(tmp_msg, msg_buf);
-            to_write = strlen(msg_buf) + 1;
+            to_write = strlen(msg_buf) + 1; // + 1 to include \0 at the end
             msg = message_proto(tmp_msg);
-            DEBUG("Sending message: %s", msg->msg);
             if (send_proto_string(pipe_fd, SUBSCRIBER_MESSAGE, msg) == -1) {
                 // Pipe was already closed, so it must break
                 must_break = true;
             }
-            msg_buf += to_write;
+            msg_buf += to_write; // offset the buffer to the next read
             bytes_read += to_write;
-            DEBUG("Bytes read is now: %lu", bytes_read);
         }
 
         pthread_mutex_unlock(&box->total_message_size_lock);
     }
-    DEBUG("Quitting subscriber, cleaning up...");
 
-    DEBUG("Locking subscribers_count_lock")
+    // Decrease the subscribers count
     pthread_mutex_lock(&box->subscribers_count_lock);
     box->subscribers_count--;
-    DEBUG("Unlocking subscribers_count_lock")
     pthread_mutex_unlock(&box->subscribers_count_lock);
-
-    DEBUG("Finished subscriber");
 }
 
 void create_box(void *protocol, box_holder_t *box_holder) {
@@ -283,7 +268,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
 
     // If there is already a box with that box_name
     if (box != NULL) {
-        DEBUG("Box already exists - quitting.");
+        WARN("Box already exists - quitting.");
         response_proto_t *res
             __attribute__((cleanup(response_proto_t_cleanup))) =
                 response_proto(-1, ERR_BOX_ALREADY_EXISTS);
@@ -387,12 +372,14 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
 
     // Send a response for each box
     for (size_t i = 0; i < box_holder->current_size; i++) {
-        // send each request
+        // Send each request
         box_metadata_t *box = box_holder->boxes[i];
         uint8_t last = 0;
         if (i == box_holder->current_size - 1) {
             last = 1;
         }
+
+        // Creates the response protocol
         pthread_mutex_lock(&box->total_message_size_lock);
         pthread_mutex_lock(&box->has_publisher_lock);
         pthread_mutex_lock(&box->subscribers_count_lock);
@@ -403,7 +390,7 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
         pthread_mutex_unlock(&box->has_publisher_lock);
         pthread_mutex_unlock(&box->subscribers_count_lock);
 
-        DEBUG("Sending box %s", box->name);
+        // Sends the protocol
         send_proto_string(wr, LIST_BOXES_RESPONSE, res);
     }
 
