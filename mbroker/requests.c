@@ -252,12 +252,20 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     strcat(box_path, "/");
     strcat(box_path, request->box_name);
 
+    int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
+
+    box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
+    if (box == NULL) {
+        response_proto_t *res =
+            response_proto(0, "Box with that name was not found");
+        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
+        free(res);
+    }
+
     // Removes box from tfs
     DEBUG("Removing box '%s' from tfs", box_path);
     ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
     DEBUG("Finished removing box");
-
-    int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
 
     if (box_holder_remove(box_holder, request->box_name) == 0) {
         // Box was removed successfully
