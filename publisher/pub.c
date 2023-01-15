@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,8 @@ int main(int argc, char **argv) {
                 "usage: pub <register_pipe_name> <pipe_name> <box_name>\n");
         return -1;
     }
+    // https://piazza.com/class/l92u0ocmbv05rk/post/108
+    signal(SIGPIPE, SIG_IGN);
 
     char *register_pipe_name = argv[1];
     char *pipe_name = argv[2];
@@ -46,12 +49,12 @@ int main(int argc, char **argv) {
     DEBUG("Opening client pipe...");
     int pipe_fd = open(pipe_name, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client FIFO!");
-    int dummy_fd = open(pipe_name, O_RDONLY);
 
     char *proto_msg;
     DEBUG("Going to read input from stdin.");
     bool to_continue = true;
     char *msg_buf = calloc(MSG_SIZE, sizeof(char));
+    int ret = 0;
     while (to_continue) {
         if (fgets(msg_buf, MSG_SIZE, stdin) == NULL) {
             PANIC("fgets failed to read from stdin");
@@ -60,15 +63,22 @@ int main(int argc, char **argv) {
         if (ptr) {
             *ptr = '\0';
         }
-        DEBUG("Going to send string '%s'", msg_buf);
+        DEBUG("Going to send string '%s' through client pipe '%s'", msg_buf,
+              pipe_name);
 
         proto_msg = message_proto(msg_buf);
-        send_proto_string(pipe_fd, PUBLISHER_MESSAGE, proto_msg);
+
+        ret = send_proto_string(pipe_fd, PUBLISHER_MESSAGE, proto_msg);
+        DEBUG("ret = %d", ret);
+        if (ret == -1) {
+            INFO("mbroker closed client pipe - quitting.");
+            break;
+        }
         // Guarantee a clean buffer on each iteration
         memset(msg_buf, '\0', MSG_SIZE);
     }
-
-    close(dummy_fd);
+    // "Se o publisher receber um EOF (End Of File, por exemplo, com um
+    // Ctrl-D)," "deve encerrar a sessão fechando o named pipe.""
     close(pipe_fd);
     return 0;
 }

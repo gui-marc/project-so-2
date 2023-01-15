@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <stdint.h>
 typedef struct queue_obj_t {
-    uint8_t opcode;
+    CODES opcode;
     void *protocol;
 } queue_obj_t;
 

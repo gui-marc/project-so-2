@@ -24,10 +24,11 @@ uint8_t recv_opcode(const int fd) {
     return opcode;
 }
 
-void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
+int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
+    DEBUG("Got opcode %d", opcode);
     size_t size = proto_size(opcode) + sizeof(uint8_t);
-    unsigned char *final = malloc(size);
+    unsigned char *final = calloc(1, size);
     DEBUG("Alloc size %lu", size);
     uint8_t saved_opcode;
 
@@ -38,9 +39,19 @@ void send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     memcpy(final + sizeof(uint8_t), proto, size - sizeof(uint8_t));
     memcpy(&saved_opcode, final, sizeof(uint8_t));
     ALWAYS_ASSERT(saved_opcode == opcode, "Failed to save opcode");
-
-    ALWAYS_ASSERT(write(fd, final, size) == size, "Failed to write proto");
+    ssize_t ret = write(fd, final, size);
+    // Panic if write failed, not due to an EPIPE.
+    if (ret != size) {
+        if (errno == EPIPE) {
+            free(final);
+            return -1;
+        }
+        PANIC("Failed to write proto");
+    }
+    // == size
+    //, "Failed to write proto");
     free(final);
+    return 0;
 }
 
 void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
@@ -109,8 +120,8 @@ void *message_proto(const char *message) {
     strcpy(p->msg, message);
     return p;
 }
-
-size_t proto_size(uint8_t code) {
+// Compiler ensures all enum cases are handled.
+size_t proto_size(CODES code) {
     size_t sz = 0;
     switch (code) {
     case REGISTER_PUBLISHER:
@@ -125,6 +136,10 @@ size_t proto_size(uint8_t code) {
     case REMOVE_BOX_RESPONSE:
     case CREATE_BOX_RESPONSE:
         sz = sizeof(response_proto_t);
+        break;
+    case PUBLISHER_MESSAGE:
+    case SUBSCRIBER_MESSAGE:
+        sz = sizeof(basic_msg_proto_t);
         break;
     case LIST_BOXES_RESPONSE:
         sz = sizeof(list_boxes_response_proto_t);
