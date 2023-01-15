@@ -21,9 +21,11 @@ uint8_t recv_opcode(const int fd) {
     uint8_t opcode;
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t buf_size = sizeof(uint8_t);
-    ALWAYS_ASSERT(read(fd, &opcode, buf_size) == buf_size,
-                  "Failed to read opcode");
-    ALWAYS_ASSERT(opcode != 0, "Failed to convert opcode");
+
+    if (read(fd, &opcode, buf_size) != buf_size) {
+        WARN("Possible wrong opcode");
+    }
+
     DEBUG("Received the opcode: %u", opcode);
     return opcode;
 }
