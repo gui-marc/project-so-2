@@ -44,7 +44,10 @@ int gg_open(const char *path, int flag) {
             return r;
         }
         if (errno == EINTR) {
+            DEBUG("Got EINTR, retrying");
             continue;
+        } else {
+            return r;
         }
     }
     return r;
@@ -60,23 +63,33 @@ void gg_close(const int fd) {
             return;
         }
         if (errno == EINTR) {
+            DEBUG("Got EINTR, retrying");
             continue;
+        } else {
+            if (r == -1) {
+                WARN("Call to gg_close failed: %s", strerror(errno));
+            }
+            return;
         }
     }
     if (r == -1) {
         WARN("Call to gg_close failed: %s", strerror(errno));
     }
+    return;
 }
 
-ssize_t gg_read(const int fd, void *buf, size_t count) {
+ssize_t gg_read(const int fd, void *a_buf, size_t count) {
     ssize_t r = -1;
     while (true) {
-        r = read(fd, buf, count);
+        r = read(fd, a_buf, count);
         if (r != -1) {
             return r;
         }
         if (errno == EINTR) {
+            DEBUG("Got EINTR, retrying");
             continue;
+        } else {
+            return r;
         }
     }
     return r;

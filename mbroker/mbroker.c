@@ -88,14 +88,15 @@ int main(int argc, char **argv) {
     int rx = open_pipe(register_pipe_name, O_RDONLY);
 
     DEBUG("Finished opening register pipe");
-
+    int dummy_fd = -1;
     // Listen to events in the register
     while (must_exit == 0) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
         ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t));
         // A dummy writer, to avoid active wait - we never actually use it.
-        const int dummy_fd = gg_open(register_pipe_name, O_WRONLY);
+        dummy_fd = (dummy_fd == -1) ? open_pipe(register_pipe_name, O_WRONLY)
+                                    : dummy_fd;
         DEBUG("dummy_fd = %d", dummy_fd);
         DEBUG("Read proto code %u", prot_code);
 
