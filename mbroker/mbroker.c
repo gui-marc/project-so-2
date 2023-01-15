@@ -20,7 +20,6 @@
 #include "box_metadata.h"
 #include "fs/operations.h"
 #include "logging.h"
-#include "mbroker.h"
 #include "producer-consumer.h"
 #include "protocols.h"
 #include "requests.h"
@@ -31,12 +30,12 @@ uint8_t sigint_called = 0;
 
 void sigint_handler() {
     DEBUG("Caught SIGINT! Exiting.");
-
-    exit(0);
+    sigint_called = 1;
+    exit(1);
 }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_NORMAL); // TODO: Remove
+    set_log_level(LOG_VERBOSE); // TODO: Remove
     // Must have at least 3 arguments
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
@@ -46,8 +45,10 @@ int main(int argc, char **argv) {
 
     const char *register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
-    max_sessions = (size_t)atoi(max_sessions_str);
+    size_t max_sessions = (size_t)atoi(max_sessions_str);
+
     DEBUG("Creating box holder...")
+    // Creates box holder
     if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
         PANIC("Failed to create box holder\n");
     }
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
         DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, args);
     }
+
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");
     int rx = open(register_pipe_name, O_RDONLY);
@@ -87,7 +89,7 @@ int main(int argc, char **argv) {
             remove(register_pipe_name);
         }
     }
-    DEBUG("Finshed opening register pipe");
+    DEBUG("Finished opening register pipe");
 
     // Listen to events in the register
     while (sigint_called == 0) {
@@ -103,7 +105,8 @@ int main(int argc, char **argv) {
             INFO("pipe closed\n");
             continue;
         } else if (ret == -1) {
-            PANIC("failed to read named pipe: %s\n", register_pipe_name);
+            WARN("Failed to read named pipe: %s", register_pipe_name);
+            break;
         }
 
         void *protocol = parse_protocol(rx, prot_code);
@@ -117,4 +120,15 @@ int main(int argc, char **argv) {
 
         pcq_enqueue(&pc_queue, obj);
     }
+
+    DEBUG("Killing threads");
+    for (size_t i = 0; i < max_sessions; i++) {
+        pthread_kill(threads[i], SIGINT);
+    }
+    DEBUG("Finished killing threads");
+
+    DEBUG("Leaving program...");
+    pcq_destroy(&pc_queue);
+    box_holder_destroy(&box_holder);
+    DEBUG("Program finished successfully");
 }

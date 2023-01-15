@@ -43,11 +43,6 @@ int pcq_destroy(pc_queue_t *queue) {
     // There is no need to lock or unlock mutexes because at this point all
     // threads were closed
 
-    // Frees all buffer related memory
-    for (size_t i = 0; i < queue->pcq_capacity; i++) {
-        free(queue->pcq_buffer[i]);
-    }
-
     // Destroys all mutexes and condvar
     if (pthread_mutex_destroy(&queue->pcq_current_size_lock) != 0 ||
         pthread_mutex_destroy(&queue->pcq_head_lock) != 0 ||
@@ -58,6 +53,11 @@ int pcq_destroy(pc_queue_t *queue) {
         pthread_cond_destroy(&queue->pcq_pusher_condvar) != 0) {
         WARN("error while destroying mutexes and condvar\n");
         return -1;
+    }
+
+    // Frees all buffer related memory
+    for (size_t i = 0; i < queue->pcq_capacity; i++) {
+        free(queue->pcq_buffer[i]);
     }
 
     return 0;

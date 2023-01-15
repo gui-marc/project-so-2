@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,17 +10,23 @@
 
 #include "betterassert.h"
 #include "logging.h"
-#include "mbroker.h"
 #include "operations.h"
 #include "protocols.h"
 #include "requests.h"
 #include "utils.h"
 
+uint8_t sigpipe_called = 0;
+
+void sigpipe_handler() {
+    DEBUG("Caught SIGINT! Exiting.");
+    sigpipe_called = 1;
+}
+
 void *listen_for_requests(void *args) {
     void **real_args = (void **)args;
     pc_queue_t *queue = (pc_queue_t *)real_args[0];
     box_holder_t *box_holder = (box_holder_t *)real_args[1];
-    set_log_level(LOG_NORMAL);
+    set_log_level(LOG_VERBOSE);
     while (true) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         DEBUG("Dequeued object with code %u", obj->opcode);
@@ -102,14 +109,18 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->has_publisher_lock);
     box->publisher_idx = pthread_self();
 
+    // Redefine SIGINT treatment
+    signal(SIGPIPE, sigpipe_handler);
+
     uint8_t op;
     publisher_msg_proto_t *pub_msg;
     size_t written = 0;
     ssize_t wrote;
     size_t msg_len = 0;
     DEBUG("Entering publisher loop.");
-    while (true) { // FIXME: Should check a variable! (Maybe create an array
-                   // that a signal handler changes this thread's variable)
+    while (sigpipe_called ==
+           0) { // FIXME: Should check a variable! (Maybe create an array
+                // that a signal handler changes this thread's variable)
         op = recv_opcode(pipe_fd);
         if (op != PUBLISHER_MESSAGE) {
             DEBUG("Received invalid opcode from publisher for box '%s'",
@@ -182,6 +193,10 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     box->subscribers_count++;
     pthread_mutex_unlock(&box->subscribers_count_lock);
 
+    // Redefine SIGINT treatment
+    signal(SIGPIPE, sigpipe_handler);
+
+    bool must_break = false;
     size_t bytes_read = 0;
     size_t to_write = 0;
     char *buf_og __attribute__((cleanup(str_cleanup))) =
@@ -192,7 +207,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal or (todo) another condvar
     DEBUG("Entering subscriber loop.");
-    while (true) {
+    while (sigpipe_called == 0 && !must_break) {
         // Waits for a new message
         pthread_mutex_lock(&box->total_message_size_lock);
         while (box->total_message_size <= bytes_read) {
@@ -211,7 +226,10 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
             to_write = strlen(msg_buf) + 1;
             msg = message_proto(tmp_msg);
             DEBUG("Sending message: %s", msg->msg);
-            send_proto_string(pipe_fd, SUBSCRIBER_MESSAGE, msg);
+            if (send_proto_string(pipe_fd, SUBSCRIBER_MESSAGE, msg) == -1) {
+                // Pipe was already closed, so it must break
+                must_break = true;
+            }
             msg_buf += to_write;
             bytes_read += to_write;
             DEBUG("Bytes read is now: %lu", bytes_read);
@@ -271,8 +289,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     }
     DEBUG("Finished saving box");
 
-    box_metadata_t *new_box =
-        box_metadata_create(request->box_name, max_sessions);
+    box_metadata_t *new_box = box_metadata_create(request->box_name);
 
     box_holder_insert(box_holder, new_box);
 

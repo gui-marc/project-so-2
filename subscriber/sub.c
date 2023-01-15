@@ -61,12 +61,17 @@ int main(int argc, char **argv) {
         uint8_t opcode = recv_opcode(rx);
         DEBUG("Received protocol %d", opcode);
         // If it was actually a message
-        if (opcode != 0) {
+        if (opcode == SUBSCRIBER_MESSAGE) {
             basic_msg_proto_t *msg = parse_protocol(rx, opcode);
             fprintf(stdout, "%s\n", msg->msg);
             DEBUG("Received message %s", msg->msg);
+        } else {
+            DEBUG("Didn't expected, ending");
+            break;
         }
     }
     // fprintf(stdout, "")  //FIXME: count nº of messages and print them here
+
+    close(rx);
     return 0;
 }

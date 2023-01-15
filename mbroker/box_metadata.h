@@ -15,7 +15,6 @@ typedef struct box_metadata_t {
     size_t total_message_size;
     pthread_mutex_t total_message_size_lock;
 
-    // pthread_mutex_t read_condvar_lock;
     pthread_cond_t read_condvar;
 
     pthread_t publisher_idx;
@@ -26,9 +25,6 @@ typedef struct box_metadata_t {
 
     size_t subscribers_count;
     pthread_mutex_t subscribers_count_lock;
-
-    size_t *subscribers;
-    pthread_mutex_t subscribers_lock;
 } box_metadata_t;
 
 /**
@@ -38,8 +34,7 @@ typedef struct box_metadata_t {
  * @param max_sessions the max sessions of the mbroker
  * @return box_metadata_t* the box metadata created
  */
-box_metadata_t *box_metadata_create(const char *name,
-                                    const size_t max_sessions);
+box_metadata_t *box_metadata_create(const char *name);
 
 /**
  * @brief Destroys a box metadata
@@ -91,5 +86,12 @@ int box_holder_remove(box_holder_t *holder, const char *name);
  * @return box_metadata_t* if the was box found or NULL otherwise
  */
 box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name);
+
+/**
+ * @brief Destroys a holder
+ *
+ * @param holder
+ */
+void box_holder_destroy(box_holder_t *holder);
 
 #endif // __BOX_METADATA_T_H__

@@ -5,24 +5,20 @@
 #include "../utils/betterassert.h"
 #include "box_metadata.h"
 
-box_metadata_t *box_metadata_create(const char *name,
-                                    const size_t max_sessions) {
+box_metadata_t *box_metadata_create(const char *name) {
     DEBUG("Creating box metadata for %s", name);
     box_metadata_t *box = calloc(1, sizeof(box_metadata_t));
     ALWAYS_ASSERT(box != NULL, "Failed to alloc box_metadata");
     ALWAYS_ASSERT(
         pthread_mutex_init(&box->has_publisher_lock, NULL) == 0 &&
-            pthread_mutex_init(&box->subscribers_lock, NULL) == 0 &&
             pthread_mutex_init(&box->publisher_idx_lock, NULL) == 0 &&
             pthread_mutex_init(&box->subscribers_count_lock, NULL) == 0 &&
-            // pthread_mutex_init(&box->read_condvar_lock, NULL) == 0 &&
             pthread_mutex_init(&box->total_message_size_lock, NULL) == 0 &&
             pthread_cond_init(&box->read_condvar, NULL) == 0,
         "Failed to init mutexes");
 
     strcpy(box->name, name);
     box->publisher_idx = 0;
-    box->subscribers = calloc(max_sessions, sizeof(size_t));
     box->has_publisher = false;
     box->subscribers_count = 0;
     box->total_message_size = 0;
@@ -32,13 +28,12 @@ box_metadata_t *box_metadata_create(const char *name,
 void box_metadata_destroy(box_metadata_t *box) {
     DEBUG("Destroying mutexes");
     pthread_mutex_destroy(&box->has_publisher_lock);
-    pthread_mutex_destroy(&box->subscribers_lock);
     pthread_mutex_destroy(&box->publisher_idx_lock);
     pthread_mutex_destroy(&box->subscribers_count_lock);
-    // pthread_mutex_destroy(&box->read_condvar_lock);
     pthread_mutex_destroy(&box->total_message_size_lock);
     pthread_cond_destroy(&box->read_condvar);
     DEBUG("Finished destroying mutexes");
+    free(box->name);
     free(box);
 }
 
@@ -104,4 +99,17 @@ box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name) {
     }
     pthread_mutex_unlock(&holder->lock);
     return NULL; // no box was found
+}
+
+void box_holder_destroy(box_holder_t *holder) {
+    fprintf(stdout, "[DEBUG] Destroying box holder\n");
+    pthread_mutex_lock(&holder->lock);
+    for (size_t i = 0; i < holder->current_size; i++) {
+        box_metadata_t *box = holder->boxes[i];
+        fprintf(stdout, "[DEBUG] Freeing box metadata for '%s'\n", box->name);
+        box_metadata_destroy(box);
+    }
+    pthread_mutex_unlock(&holder->lock);
+    pthread_mutex_destroy(&holder->lock);
+    free(holder);
 }
