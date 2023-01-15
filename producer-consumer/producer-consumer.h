@@ -1,10 +1,14 @@
 #ifndef __PRODUCER_CONSUMER_H__
 #define __PRODUCER_CONSUMER_H__
 
+#include "protocols.h"
 #include <pthread.h>
 #include <stdint.h>
+
+#include "protocols.h"
+
 typedef struct queue_obj_t {
-    uint8_t opcode;
+    CODES opcode;
     void *protocol;
 } queue_obj_t;
 

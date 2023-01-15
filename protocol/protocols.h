@@ -94,19 +94,30 @@ typedef struct __attribute__((__packed__)) basic_msg_proto_t {
 #define publisher_msg_proto_t basic_msg_proto_t
 #define subscriber_msg_proto_t basic_msg_proto_t
 
+void response_proto_t_cleanup(response_proto_t **ptr);
+
+void request_proto_t_cleanup(request_proto_t **ptr);
+
+void ls_boxes_resp_proto_cleanup(list_boxes_response_proto_t **ptr);
+
 uint8_t recv_opcode(const int fd);
 
 /**
  * @brief Send a protocol packed struct as an array of bytes
  *
- * @details It fallows the following structure:
+ * @details It follows the following structure:
  *
  * [ uint8_t opcode | ...protocol ]
  *
  * The opcode is the code of the protocol and the protocol is an structure with
  * variable size. You can get the protocol size with the @link proto_size method
+ *
+ * In case of an error, function will panic and quit, unless as described in
+ * return.
+ *
+ * @return -1 if failed to write due to EPIPE, 0 otherwise
  */
-void send_proto_string(const int fd, const uint8_t opcode, const void *proto);
+int send_proto_string(const int fd, const uint8_t opcode, const void *proto);
 
 /**
  * @brief Creates a named pipe
@@ -188,8 +199,6 @@ void *message_proto(const char *message);
  *
  * @param code protocol code
  */
-size_t proto_size(uint8_t code);
-
-void send_proto_string(const int fd, const uint8_t opcode, const void *proto);
+size_t proto_size(CODES code);
 
 #endif
