@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 
         void *protocol = parse_protocol(rx, prot_code);
 
-        queue_obj_t *obj = malloc(sizeof(queue_obj_t));
+        queue_obj_t *obj = calloc(1, sizeof(queue_obj_t));
 
         obj->opcode = prot_code;
         obj->protocol = protocol;

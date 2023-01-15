@@ -8,7 +8,7 @@
 box_metadata_t *box_metadata_create(const char *name,
                                     const size_t max_sessions) {
     DEBUG("Creating box metadata for %s", name);
-    box_metadata_t *box = malloc(sizeof(box_metadata_t));
+    box_metadata_t *box = calloc(1, sizeof(box_metadata_t));
     ALWAYS_ASSERT(box != NULL, "Failed to alloc box_metadata");
     ALWAYS_ASSERT(
         pthread_mutex_init(&box->has_publisher_lock, NULL) == 0 &&

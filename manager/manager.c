@@ -31,6 +31,7 @@ static void print_usage() {
 }
 
 int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
+    DEBUG("start list_boxes");
     // Sends the request to the mbroker
     list_boxes_request_proto_t *request =
         list_boxes_request_proto(client_pipe_name);
@@ -102,12 +103,13 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
+    DEBUG("start create_box...");
     // Send the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
 
     create_pipe(client_pipe_name);
     int wx = open_pipe(server_pipe_name, O_WRONLY);
-    send_proto_string(wx, REMOVE_BOX_REQUEST, request);
+    send_proto_string(wx, CREATE_BOX_REQUEST, request);
     int rx = open_pipe(client_pipe_name, O_RDONLY);
 
     uint8_t opcode = 0;
@@ -130,6 +132,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
 
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
+    DEBUG("start remove_box...");
     // Send the request to the mbroker
     request_proto_t *request = request_proto(client_pipe_name, box_name);
 

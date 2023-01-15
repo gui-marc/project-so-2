@@ -30,6 +30,7 @@ void *listen_for_requests(void *args) {
 }
 
 void parse_request(queue_obj_t *obj, box_holder_t *box_holder) {
+    DEBUG("parse_request...");
     switch (obj->opcode) {
     case REGISTER_PUBLISHER:
         register_publisher(obj->protocol, box_holder);
@@ -144,6 +145,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
 }
 
 void register_subscriber(void *protocol, box_holder_t *box_holder) {
+    DEBUG("register_subscriber started...");
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
     int pipe_fd = open(request->client_named_pipe_path, O_WRONLY);
     ALWAYS_ASSERT(pipe_fd != -1,
@@ -201,8 +203,9 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     box->subscribers_count--;
     pthread_mutex_unlock(&box->subscribers_count_lock);
 }
-
+// FIXME: isto dá segmentation fault a remover uma caixa que não existe
 void create_box(void *protocol, box_holder_t *box_holder) {
+    DEBUG("create_box started...");
     DEBUG("Creating box...")
     create_box_proto_t *request = (create_box_proto_t *)protocol;
 
@@ -252,16 +255,12 @@ void create_box(void *protocol, box_holder_t *box_holder) {
 }
 
 void remove_box(void *protocol, box_holder_t *box_holder) {
+    DEBUG("remove_box started...");
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
 
     char box_path[BOX_NAME_SIZE + 1] = {};
     strcat(box_path, "/");
     strcat(box_path, request->box_name);
-
-    // Removes box from tfs
-    DEBUG("Removing box '%s' from tfs", box_path);
-    ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
-    DEBUG("Finished removing box");
 
     int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
 
@@ -280,14 +279,17 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         free(error_msg);
         free(res);
     }
-
+    // Removes box from TFS
+    DEBUG("Removing box '%s' from TFS", box_path);
+    ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
+    DEBUG("Finished removing box %s from TFS", box_path);
     // Todo: close all related subscribers and publishers
 
     close(wx);
 }
 
 void list_boxes(void *protocol, box_holder_t *box_holder) {
-    DEBUG("Listing boxes");
+    DEBUG("list_boxes started...");
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
 
