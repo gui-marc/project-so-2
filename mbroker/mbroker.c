@@ -30,7 +30,7 @@
 uint8_t sigint_called = 0;
 
 void sigint_handler() {
-    DEBUG("Caught SIGINT! Exiting.");
+    //WARNING: can't use logging functions here! fprintf isn't signal-safe.
     sigint_called = 1;
     // exit(1);
 }
