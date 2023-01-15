@@ -41,16 +41,14 @@ int main(int argc, char **argv) {
     create_pipe(pipe_name);
 
     DEBUG("Opening register pipe.");
-    int regpipe_fd = open(register_pipe_name, O_WRONLY);
-    ALWAYS_ASSERT(regpipe_fd != -1, "Failed to open register FIFO!");
+    int regpipe_fd = open_pipe(register_pipe_name, O_WRONLY);
 
     DEBUG("Sent register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(regpipe_fd, REGISTER_PUBLISHER, request);
     ALWAYS_ASSERT(gg_close(regpipe_fd) == 0, "Failed to close register pipe!");
 
     DEBUG("Opening client pipe...");
-    int pipe_fd = open(pipe_name, O_WRONLY);
-    ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client FIFO!");
+    int pipe_fd = open_pipe(pipe_name, O_WRONLY);
 
     char *proto_msg;
     DEBUG("Going to read input from stdin.");

@@ -71,7 +71,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     DEBUG("Starting register_publisher for client_pipe '%s'",
           request->client_named_pipe_path);
-    int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
+    int pipe_fd = gg_open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
     char *box_path __attribute__((cleanup(str_cleanup))) =

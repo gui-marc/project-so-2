@@ -79,7 +79,7 @@ void create_pipe(const char npipe_path[NPIPE_PATH_SIZE]) {
 }
 
 int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
-    int fd = open(npipe_path, _flag);
+    int fd = gg_open(npipe_path, _flag);
     ALWAYS_ASSERT(fd != -1, "Failed to open named pipe '%s', err='%s'",
                   npipe_path, strerror(errno));
     return fd;

@@ -47,12 +47,11 @@ int main(int argc, char **argv) {
 
     DEBUG("client_named_pipe: %s\n", request->client_named_pipe_path);
 
-    int wx = open(register_pipe_name, O_WRONLY);
-    ALWAYS_ASSERT(wx != -1, "Failed to open fifo");
+    int wx = open_pipe(register_pipe_name, O_WRONLY);
 
     send_proto_string(wx, REGISTER_SUBSCRIBER, request);
 
-    int rx = open(pipe_name, O_RDONLY);
+    int rx = open_pipe(pipe_name, O_RDONLY);
     ALWAYS_ASSERT(rx != -1, "Failed to open pipe %s", pipe_name);
 
     // Waits until the

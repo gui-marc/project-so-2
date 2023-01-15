@@ -82,13 +82,8 @@ int main(int argc, char **argv) {
 
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");
-    int rx = open(register_pipe_name, O_RDONLY);
-    if (rx == -1) {
-        if (errno != EINTR) {
-            PANIC("failed to open register pipe: %s\n", register_pipe_name);
-            remove(register_pipe_name);
-        }
-    }
+    int rx = open_pipe(register_pipe_name, O_RDONLY);
+
     DEBUG("Finished opening register pipe");
 
     // Listen to events in the register
@@ -97,7 +92,7 @@ int main(int argc, char **argv) {
         DEBUG("Going to read from register pipe, may fall asleep.");
         ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
         // A dummy writer, to avoid active wait - we never actually use it.
-        const int dummy_fd = open(register_pipe_name, O_WRONLY);
+        const int dummy_fd = gg_open(register_pipe_name, O_WRONLY);
         DEBUG("dummy_fd = %d", dummy_fd);
         DEBUG("Read proto code %u", prot_code);
 
