@@ -31,7 +31,6 @@ void box_metadata_destroy(box_metadata_t *box) {
     pthread_mutex_destroy(&box->total_message_size_lock);
     pthread_cond_destroy(&box->read_condvar);
     DEBUG("Finished destroying mutexes");
-    gg_free((void **)&box->name);
     gg_free((void **)&box);
 }
 
@@ -90,7 +89,6 @@ box_metadata_t *box_holder_find_box(box_holder_t *holder, const char *name) {
 }
 
 void box_holder_destroy(box_holder_t *holder) {
-    set_log_level(LOG_VERBOSE);
     pthread_mutex_lock(&holder->lock);
     for (size_t i = 0; i < holder->current_size; i++) {
         box_metadata_t *box = holder->boxes[i];
