@@ -1,3 +1,7 @@
+#include "protocols.h"
+#include "betterassert.h"
+#include "logging.h"
+#include "utils.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,9 +11,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "betterassert.h"
-#include "logging.h"
-#include "protocols.h"
+void response_proto_t_cleanup(response_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
 
 // Reads an opcode from an open named pipe.
 //  -1 on fail.
@@ -28,7 +32,8 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     DEBUG("Got opcode %d", opcode);
     size_t size = proto_size(opcode) + sizeof(uint8_t);
-    unsigned char *final = calloc(1, size);
+    unsigned char *final __attribute__((cleanup(ustr_cleanup))) =
+        calloc(1, size);
     DEBUG("Alloc size %lu", size);
     uint8_t saved_opcode;
 
@@ -43,14 +48,12 @@ int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     // Panic if write failed, not due to an EPIPE.
     if (ret != size) {
         if (errno == EPIPE) {
-            free(final);
             return -1;
         }
         PANIC("Failed to write proto");
     }
     // == size
     //, "Failed to write proto");
-    free(final);
     return 0;
 }
 

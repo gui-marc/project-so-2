@@ -94,6 +94,8 @@ typedef struct __attribute__((__packed__)) basic_msg_proto_t {
 #define publisher_msg_proto_t basic_msg_proto_t
 #define subscriber_msg_proto_t basic_msg_proto_t
 
+void response_proto_t_cleanup(response_proto_t **ptr);
+
 uint8_t recv_opcode(const int fd);
 
 /**

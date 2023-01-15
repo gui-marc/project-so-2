@@ -91,10 +91,10 @@ fmt: $(SOURCES) $(HEADERS)
 # Note the lack of a rule.
 # make uses a set of default rules, one of which compiles C binaries
 # the CC, LD, CFLAGS and LDFLAGS are used in this rule
-mbroker/mbroker: $(FS_OBJECTS) $(MBROKER_OBJECTS) $(PROTOCOL_OBJECTS) $(PRODUCER_CONSUMER_OBJECTS) $(UTILS_OBJECTS)
-manager/manager: $(FS_OBJECTS) $(MANAGER_OBJECTS) $(PROTOCOL_OBJECTS) $(UTILS_OBJECTS)
-publisher/pub: $(PUBLISHER_OBJECTS) $(PROTOCOL_OBJECTS) $(UTILS_OBJECTS)
-subscriber/sub: $(SUBSCRIBER_OBJECTS) $(PROTOCOL_OBJECTS) $(UTILS_OBJECTS)
+mbroker/mbroker:  $(UTILS_OBJECTS) $(FS_OBJECTS) $(MBROKER_OBJECTS) $(PROTOCOL_OBJECTS) $(PRODUCER_CONSUMER_OBJECTS)
+manager/manager:  $(UTILS_OBJECTS) $(FS_OBJECTS) $(MANAGER_OBJECTS) $(PROTOCOL_OBJECTS)
+publisher/pub:  $(UTILS_OBJECTS) $(PUBLISHER_OBJECTS) $(PROTOCOL_OBJECTS)
+subscriber/sub: $(UTILS_OBJECTS) $(SUBSCRIBER_OBJECTS) $(PROTOCOL_OBJECTS)
 
 clean:
 	rm -f $(OBJECTS) $(TARGET_EXECS) $(PIPES)

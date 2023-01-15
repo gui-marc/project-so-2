@@ -13,6 +13,7 @@
 #include "operations.h"
 #include "protocols.h"
 #include "requests.h"
+#include "utils.h"
 
 void *listen_for_requests(void *args) {
     void **real_args = (void **)args;
@@ -66,8 +67,8 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
-    char *box_path =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    char *box_path __attribute__((cleanup(str_cleanup))) =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -85,7 +86,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         DEBUG("Box does not exist, quitting.")
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
-        free(box_path);
         return;
     }
     DEBUG("Passed box existence check.");
@@ -96,7 +96,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         close(pipe_fd);
         tfs_close(fd);
         pthread_mutex_unlock(&box->has_publisher_lock);
-        free(box_path);
         return;
     }
     box->has_publisher = true;
@@ -109,9 +108,8 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     ssize_t wrote;
     size_t msg_len = 0;
     DEBUG("Entering publisher loop.");
-    while (
-        true) { // FIXME: Should check a variable! (Maybe create an array that a
-                // signal handler changes this thread's variable)
+    while (true) { // FIXME: Should check a variable! (Maybe create an array
+                   // that a signal handler changes this thread's variable)
         op = recv_opcode(pipe_fd);
         if (op != PUBLISHER_MESSAGE) {
             DEBUG("Received invalid opcode from publisher for box '%s'",
@@ -137,7 +135,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         box->total_message_size += msg_len;
         pthread_mutex_unlock(&box->total_message_size_lock);
         pthread_cond_broadcast(&box->read_condvar);
-        free(pub_msg);
         if (written != msg_len) {
             // We don't explicitly disallow new publishers to connect after this
             // one quits, But subsequent publishers will all fail here and won't
@@ -153,7 +150,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
-    free(box_path);
     DEBUG("Thread for publisher of '%s' finished", request->box_name);
     return;
 }
@@ -167,7 +163,6 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
                   request->client_named_pipe_path);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
-        // free(response_proto);
         close(pipe_fd);
     }
     int fd = tfs_open(request->box_name, 0);
@@ -182,9 +177,11 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
 
     size_t bytes_read = 0;
     size_t to_write = 0;
-    char *buf_og = calloc(MSG_SIZE, sizeof(char));
+    char *buf_og __attribute__((cleanup(str_cleanup))) =
+        calloc(MSG_SIZE, sizeof(char));
     char *msg_buf;
-    char *tmp_msg = calloc(MSG_SIZE, sizeof(char));
+    char *tmp_msg __attribute__((cleanup(str_cleanup))) =
+        calloc(MSG_SIZE, sizeof(char));
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal or (todo) another condvar
     while (true) {
@@ -229,17 +226,18 @@ void create_box(void *protocol, box_holder_t *box_holder) {
 
     if (box != NULL) {
         DEBUG("Box already exists - quitting.");
-        response_proto_t *res = response_proto(-1, ERR_BOX_ALREADY_EXISTS);
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, ERR_BOX_ALREADY_EXISTS);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         close(pipe_fd);
-        free(res);
         return;
     }
     DEBUG("box_name = '%s'", request->box_name);
     // Create the new file for the box
     // TFS's max filename is 40, so we're good
-    char *box_path =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    char *box_path __attribute__((cleanup(str_cleanup))) =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -248,12 +246,12 @@ void create_box(void *protocol, box_holder_t *box_holder) {
 
     if (fd == -1) {
         DEBUG("Error while saving box in TFS");
-        response_proto_t *res = response_proto(-1, ERR_BOX_CREATION);
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, ERR_BOX_CREATION);
         send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
         tfs_close(fd);
         close(pipe_fd);
-        free(box_path);
-        free(res);
         return;
     }
     DEBUG("Finished saving box");
@@ -264,11 +262,10 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     box_holder_insert(box_holder, new_box);
 
     DEBUG("Created box successfully");
-    response_proto_t *res = response_proto(0, "\0");
+    response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) =
+        response_proto(0, "\0");
     send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
     close(pipe_fd);
-    free(res);
-    free(box_path);
     return;
 }
 
@@ -277,8 +274,8 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
     bool remove_failed = false;
 
-    char *box_path =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    char *box_path __attribute__((cleanup(str_cleanup))) =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
@@ -295,22 +292,23 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         remove_failed == false) {
         DEBUG("Success removing box '%s'", request->box_name);
         // Box was removed successfully
-        response_proto_t *res = response_proto(0, "\0");
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(0, "\0");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(res);
     } else {
         DEBUG("Box removal failed!");
         // Error while removing box
-        char *error_msg = calloc(MSG_SIZE, sizeof(char));
+        char *error_msg __attribute__((cleanup(str_cleanup))) =
+            calloc(MSG_SIZE, sizeof(char));
         snprintf(error_msg, MSG_SIZE, "Failed to remove box with name: %s",
                  request->box_name);
-        response_proto_t *res = response_proto(-1, error_msg);
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, error_msg);
 
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(res);
-        free(error_msg);
     }
-    free(box_path);
     close(wx);
     return;
 }
@@ -348,11 +346,11 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
 
     // No boxes
     if (box_holder->current_size == 0) {
-        char *msg = calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
+        char *msg __attribute__((cleanup(str_cleanup))) =
+            calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
         list_boxes_response_proto_t *res =
             list_boxes_response_proto(1, msg, 0, false, 0);
         send_proto_string(wr, LIST_BOXES_RESPONSE, res);
-        free(msg);
     }
 
     pthread_mutex_unlock(&box_holder->lock);

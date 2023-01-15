@@ -71,15 +71,13 @@ int main(int argc, char **argv) {
 
     // Create threads
     pthread_t threads[max_sessions];
-    void **args = calloc(2, sizeof(void *));
+    void **args = calloc(2, sizeof(char *));
     args[0] = &pc_queue;
     args[1] = &box_holder;
     for (int i = 0; i < max_sessions; i++) {
         DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, args);
     }
-    // free(args);
-
     // This waits to other process to write in the pipe
     DEBUG("Opening register pipe");
     int rx = open(register_pipe_name, O_RDONLY);

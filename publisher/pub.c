@@ -10,6 +10,7 @@
 #include "betterassert.h"
 #include "logging.h"
 #include "protocols.h"
+#include "utils.h"
 
 int main(int argc, char **argv) {
     set_log_level(LOG_VERBOSE);
@@ -45,6 +46,7 @@ int main(int argc, char **argv) {
 
     DEBUG("Sent register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(regpipe_fd, REGISTER_PUBLISHER, request);
+    ALWAYS_ASSERT(close(regpipe_fd) == 0, "Failed to close register pipe!");
 
     DEBUG("Opening client pipe...");
     int pipe_fd = open(pipe_name, O_WRONLY);
@@ -53,7 +55,8 @@ int main(int argc, char **argv) {
     char *proto_msg;
     DEBUG("Going to read input from stdin.");
     bool to_continue = true;
-    char *msg_buf = calloc(MSG_SIZE, sizeof(char));
+    char *msg_buf __attribute__((cleanup(str_cleanup))) =
+        calloc(MSG_SIZE, sizeof(char));
     int ret = 0;
     while (to_continue) {
         if (fgets(msg_buf, MSG_SIZE, stdin) == NULL) {
@@ -79,6 +82,7 @@ int main(int argc, char **argv) {
     }
     // "Se o publisher receber um EOF (End Of File, por exemplo, com um
     // Ctrl-D)," "deve encerrar a sessão fechando o named pipe.""
+    DEBUG("Received SIGPIPE (technically EPIPE), quitting")
     close(pipe_fd);
     return 0;
 }
