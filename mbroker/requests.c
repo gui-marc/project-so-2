@@ -332,6 +332,23 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         return;
     }
 
+    // Verifies if the box has a publisher or a subscriber connected
+    pthread_mutex_lock(&box->subscribers_count_lock);
+    pthread_mutex_lock(&box->has_publisher_lock);
+    if (box->subscribers_count > 0 || box->has_publisher) {
+        pthread_mutex_unlock(&box->subscribers_count_lock);
+        pthread_mutex_unlock(&box->has_publisher_lock);
+
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, "This box is being used by other process");
+        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
+        gg_close(wx);
+        return;
+    }
+    pthread_mutex_unlock(&box->subscribers_count_lock);
+    pthread_mutex_unlock(&box->has_publisher_lock);
+
     // Removes box from tfs
     ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
 
