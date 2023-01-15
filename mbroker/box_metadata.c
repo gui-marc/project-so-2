@@ -33,8 +33,8 @@ void box_metadata_destroy(box_metadata_t *box) {
     pthread_mutex_destroy(&box->total_message_size_lock);
     pthread_cond_destroy(&box->read_condvar);
     DEBUG("Finished destroying mutexes");
-    free(box->name);
-    free(box);
+    gg_free((void **) &box->name);
+    gg_free((void **) &box);
 }
 
 int box_holder_create(box_holder_t *holder, const size_t max_boxes) {

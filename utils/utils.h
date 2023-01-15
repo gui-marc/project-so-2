@@ -5,6 +5,8 @@
 
 void mem_cleanup(void **ptr);
 
+void gg_free(void *ptr);
+
 void str_cleanup(char **ptr);
 
 void ustr_cleanup(unsigned char **ptr);

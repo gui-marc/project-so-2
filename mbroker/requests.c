@@ -31,8 +31,8 @@ void *listen_for_requests(void *args) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         DEBUG("Dequeued object with code %u", obj->opcode);
         parse_request(obj, box_holder);
-        free(obj->protocol);
-        free(obj);
+        gg_free((void **) &obj->protocol);
+        gg_free((void **) &obj);
     }
     return NULL;
 }
@@ -318,7 +318,7 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         response_proto_t *res =
             response_proto(-1, "Box with that name was not found");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(res);
+        gg_free((void **) &res);
         close(wx);
         return;
     }
