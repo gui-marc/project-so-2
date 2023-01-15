@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+
 /**
  * @brief Represents a box in the mbroker. Contains all info related to the box.
  */
@@ -39,7 +40,7 @@ box_metadata_t *box_metadata_create(const char *name);
 /**
  * @brief Destroys a box metadata
  *
- * @param box
+ * @param box to be destroyed
  */
 void box_metadata_destroy(box_metadata_t *box);
 
@@ -75,7 +76,7 @@ void box_holder_insert(box_holder_t *holder, box_metadata_t *box);
  * @brief Removes a box from the holder
  *
  * @param name of the box to remove
- * @return 0 if it was sucessfully removed and -1 otherwise
+ * @return 0 if it was successfully removed and -1 otherwise
  */
 int box_holder_remove(box_holder_t *holder, const char *name);
 

@@ -18,6 +18,12 @@
 
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
+/**
+ * @brief Sorts the list of responses by the box name alphabetically
+ *
+ * @param responses the list of responses
+ * @param size the size of the list
+ */
 void bubble_sort_responses(list_boxes_response_proto_t **responses,
                            size_t size) {
     size_t i, j;
@@ -34,6 +40,10 @@ void bubble_sort_responses(list_boxes_response_proto_t **responses,
             }
 };
 
+/**
+ * @brief Prints how to use the manager
+ *
+ */
 static void print_usage() {
     fprintf(stderr,
             "usage: \n"
@@ -42,6 +52,14 @@ static void print_usage() {
             "   manager <register_pipe_name> <pipe_name> list\n");
 }
 
+/**
+ * @brief Method to list boxes. Makes a request to the mbroker then present the
+ * boxes sorted.
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @return int 0 if is ok and -1 otherwise
+ */
 int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     DEBUG("start list_boxes");
     // Sends the request to the mbroker
@@ -112,6 +130,14 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     return 0;
 }
 
+/**
+ * @brief Handles sending a request for creating a box in the mbroker
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @param box_name the name of the box to be created
+ * @return int 0 if was successful and -1 otherwise
+ */
 int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
     DEBUG("start create_box...");
@@ -142,6 +168,14 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     }
 }
 
+/**
+ * @brief Handles requesting a box removal in the mbroker.
+ *
+ * @param server_pipe_name the mbroker named pipe path
+ * @param client_pipe_name the client named pipe path
+ * @param box_name the box to be removed
+ * @return int 0 if was successful and -1 otherwise
+ */
 int remove_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
     DEBUG("start remove_box...");
@@ -169,6 +203,13 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     }
 }
 
+/**
+ * @brief Parses the right operation in the manager
+ *
+ * @param argc number of arguments
+ * @param argv array containing the arguments
+ * @return int
+ */
 int main(int argc, char **argv) {
     set_log_level(LOG_VERBOSE); // TODO: Remove
     DEBUG("argc = '%d'", argc);
@@ -185,17 +226,18 @@ int main(int argc, char **argv) {
     DEBUG("Operation = '%s'", operation);
 
     if (STR_MATCH(operation, "create") && argc == 5) {
+        // Create a box
         char *box_name = argv[4];
         create_box(register_pipe_name, pipe_name, box_name);
-    }
-    // We could allow more arguments and just ignore them,
-    // but it's better to inform the user of the correct CLI usage
-    else if (STR_MATCH(operation, "remove") && argc == 5) {
+    } else if (STR_MATCH(operation, "remove") && argc == 5) {
+        // Remove a box
         char *box_name = argv[4];
         remove_box(register_pipe_name, pipe_name, box_name);
     } else if (STR_MATCH(operation, "list") && argc == 4) {
+        // List the boxes
         list_boxes(register_pipe_name, pipe_name);
     } else {
+        // Invalid operation
         print_usage();
         return -1;
     }

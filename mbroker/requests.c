@@ -16,29 +16,39 @@
 #include "utils.h"
 
 uint8_t sigpipe_called = 0;
+uint8_t sigusr_called = 0;
 
-void sigpipe_handler() {
-    DEBUG("Caught SIGINT! Exiting.");
-    sigpipe_called = 1;
-}
+/**
+ * @brief Handles the SIGPIPE signal. Stops the thread and kills the program.
+ */
+void sigpipe_handler() { sigpipe_called = 1; }
+
+/**
+ * @brief Handles the SIGUSR1 signal, sent by the mbroker when the main thread
+ * is closing. After that, the thread will end.
+ */
+void sigusr_handler() { sigusr_called = 1; }
 
 void *listen_for_requests(void *args) {
+    set_log_level(LOG_VERBOSE);
     void **real_args = (void **)args;
     pc_queue_t *queue = (pc_queue_t *)real_args[0];
     box_holder_t *box_holder = (box_holder_t *)real_args[1];
     set_log_level(LOG_VERBOSE);
-    while (true) {
+
+    signal(SIGUSR1, sigusr_handler);
+
+    while (sigusr_called == 0) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
-        DEBUG("Dequeued object with code %u", obj->opcode);
         parse_request(obj, box_holder);
         free(obj->protocol);
         free(obj);
     }
+
     return NULL;
 }
 
 void parse_request(queue_obj_t *obj, box_holder_t *box_holder) {
-    DEBUG("parse_request...");
     switch (obj->opcode) {
     case REGISTER_PUBLISHER:
         register_publisher(obj->protocol, box_holder);
@@ -71,32 +81,38 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     DEBUG("Starting register_publisher for client_pipe '%s'",
           request->client_named_pipe_path);
-    int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
-    ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
+    // Opens the pipe to send information to the publisher client
+    int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
+    if (pipe_fd == -1) {
+        WARN("Failed to open client named pipe");
+        return;
+    }
+
+    // Represents a path to the box in the TFS
     char *box_path __attribute__((cleanup(str_cleanup))) =
         calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
+    // Opens the box
     int fd = tfs_open(box_path, TFS_O_APPEND);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
-    DEBUG("Checking if box '%s' exists...", request->box_name);
-    // If we couldn't open the box for whatever reason,
-    // exit.
+
+    // Ends the program if the box was not found or there was an error while
+    // opening it
     if (fd == -1 || box == NULL) {
         if (box == NULL) {
-            DEBUG("Opening metadata of box '%s' failed.", request->box_name);
+            WARN("Box '%s' doesn't exist", request->box_name);
         } else if (fd == -1) {
-            DEBUG("tfs_open of file '%s' failed.", box_path);
+            WARN("Box '%s' failed to open", request->box_name);
         }
-        DEBUG("Box does not exist, quitting.")
-        close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
+        close(pipe_fd);
         tfs_close(fd);
         return;
     }
-    DEBUG("Passed box existence check.");
 
+    // Verifies if is the only publisher looking at that box
     pthread_mutex_lock(&box->has_publisher_lock);
     if (box->has_publisher == true) {
         DEBUG("Box already has a publisher. Quitting.");
@@ -105,6 +121,8 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         pthread_mutex_unlock(&box->has_publisher_lock);
         return;
     }
+
+    // Sets the box metadata
     box->has_publisher = true;
     pthread_mutex_unlock(&box->has_publisher_lock);
     box->publisher_idx = pthread_self();
@@ -118,77 +136,85 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     ssize_t wrote;
     size_t msg_len = 0;
     DEBUG("Entering publisher loop.");
-    while (sigpipe_called ==
-           0) { // FIXME: Should check a variable! (Maybe create an array
-                // that a signal handler changes this thread's variable)
+    while (sigpipe_called == 0) {
+        // This while loop ends when the pipe is closed (the user closed the
+        // publisher client)
+
         op = recv_opcode(pipe_fd);
         if (op != PUBLISHER_MESSAGE) {
-            DEBUG("Received invalid opcode from publisher for box '%s'",
-                  request->box_name);
+            WARN("Received invalid opcode from publisher for box '%s'",
+                 request->box_name);
             // Didn't expect this message: quit
             break;
         }
+
         pub_msg = (publisher_msg_proto_t *)parse_protocol(pipe_fd, op);
-        DEBUG("Received this message from publisher of '%s': '%s'",
-              request->box_name, pub_msg->msg);
         msg_len = strlen(pub_msg->msg) + 1;
         wrote = tfs_write(fd, pub_msg->msg,
                           strlen(pub_msg->msg) + 1); //+1 to include \0
         if (wrote < 0) {
-            // ... error
-            DEBUG("Error occurred in tfs_write publisher msg")
+            WARN("Error occurred in tfs_write publisher msg")
             break;
         } else {
             written = (size_t)wrote;
         }
 
+        // Updates the message size so the subscribers can read
         pthread_mutex_lock(&box->total_message_size_lock);
         box->total_message_size += msg_len;
         pthread_mutex_unlock(&box->total_message_size_lock);
+
+        // Let subscriber threads read the new message
         pthread_cond_broadcast(&box->read_condvar);
+
         if (written != msg_len) {
             // We don't explicitly disallow new publishers to connect after this
             // one quits, But subsequent publishers will all fail here and won't
             // write anything else.
-            DEBUG("Couldn't write entire message to TFS. Quitting.")
+            WARN("Couldn't write entire message to TFS. Quitting.")
             break;
         }
     }
 
-    DEBUG("Cleaning up thread for publisher of '%s'", request->box_name);
+    // Clean the thread
     pthread_mutex_lock(&box->has_publisher_lock);
     box->has_publisher = false;
     pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
-    DEBUG("Thread for publisher of '%s' finished", request->box_name);
     return;
 }
 
 void register_subscriber(void *protocol, box_holder_t *box_holder) {
-    DEBUG("register_subscriber started...");
     register_sub_proto_t *request = (register_sub_proto_t *)protocol;
+
+    // Opens the pipe to send messages to the client
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
+
+    // No box was found with the given box_name
     if (box == NULL) {
-        DEBUG("Failed to find metadata box for %s", request->box_name);
-        close(pipe_fd);
-        return;
-    }
-    // Create the new file for the box
-    // TFS's max filename is 40, so we're good
-    char *box_path __attribute__((cleanup(str_cleanup))) =
-        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
-    strcpy(box_path, "/");
-    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
-    int fd = tfs_open(box_path, 0);
-    if (fd == -1) {
-        DEBUG("Failed to open TFS file %s", box_path);
+        WARN("Failed to find metadata box for %s", request->box_name);
         close(pipe_fd);
         return;
     }
 
-    // Todo: change subscribers array (it is even needed?)
+    // Creates the path to the box in the TFS
+    char *box_path __attribute__((cleanup(str_cleanup))) =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
+    strcpy(box_path, "/");
+    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
+
+    // Opens the box in the TFS
+    int fd = tfs_open(box_path, 0);
+    if (fd == -1) {
+        WARN("Failed to open TFS file %s", box_path);
+        close(pipe_fd);
+        return;
+    }
+
+    // Updates the subscribers count in the box metadata
+    // Is used by the manager when listing boxes
     pthread_mutex_lock(&box->subscribers_count_lock);
     box->subscribers_count++;
     pthread_mutex_unlock(&box->subscribers_count_lock);
@@ -205,7 +231,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     char *tmp_msg __attribute__((cleanup(str_cleanup))) =
         calloc(MSG_SIZE, sizeof(char));
     basic_msg_proto_t *msg = NULL;
-    // This first while loop only closes with a signal or (todo) another condvar
+    // This first while loop only closes with a signal
     DEBUG("Entering subscriber loop.");
     while (sigpipe_called == 0 && !must_break) {
         // Waits for a new message
@@ -235,9 +261,6 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
             DEBUG("Bytes read is now: %lu", bytes_read);
         }
 
-        // acho que aqui é uma condição para "fechar" o subscriber
-        // podiamos meter uma outra condvar para fechar o subscriber quando
-        // fechasse a box faz sentido?
         pthread_mutex_unlock(&box->total_message_size_lock);
     }
     DEBUG("Quitting subscriber, cleaning up...");
@@ -247,16 +270,16 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->subscribers_count_lock);
 }
 
-// FIXME: isto dá segmentation fault a remover uma caixa que não existe
 void create_box(void *protocol, box_holder_t *box_holder) {
-    DEBUG("create_box started...");
     create_box_proto_t *request = (create_box_proto_t *)protocol;
 
-    DEBUG("opening client named pipe %s", request->client_named_pipe_path);
+    // Opens the pipe to send information to the client
     int pipe_fd = open_pipe(request->client_named_pipe_path, O_WRONLY);
 
+    // Search for the box in the box_holder
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
 
+    // If there is already a box with that box_name
     if (box != NULL) {
         DEBUG("Box already exists - quitting.");
         response_proto_t *res
@@ -266,19 +289,19 @@ void create_box(void *protocol, box_holder_t *box_holder) {
         close(pipe_fd);
         return;
     }
-    DEBUG("box_name = '%s'", request->box_name);
-    // Create the new file for the box
-    // TFS's max filename is 40, so we're good
+
+    // Creates the path to the box in the TFS
     char *box_path __attribute__((cleanup(str_cleanup))) =
         calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
-    DEBUG("Saving box at path: '%s'", box_path);
+    // Saves the box in the TFS
     int fd = tfs_open(box_path, TFS_O_CREAT | TFS_O_TRUNC);
 
+    // Failed to save box in the TFS
     if (fd == -1) {
-        DEBUG("Error while saving box in TFS");
+        WARN("Error while saving box in TFS");
         response_proto_t *res
             __attribute__((cleanup(response_proto_t_cleanup))) =
                 response_proto(-1, ERR_BOX_CREATION);
@@ -287,13 +310,15 @@ void create_box(void *protocol, box_holder_t *box_holder) {
         close(pipe_fd);
         return;
     }
-    DEBUG("Finished saving box");
 
+    // Creates a metadata to store in the mbroker
     box_metadata_t *new_box = box_metadata_create(request->box_name);
 
+    // Stores the new metadata in the box_holder (to be used by another
+    // functionalities)
     box_holder_insert(box_holder, new_box);
 
-    DEBUG("Created box successfully");
+    // Sends the OK response to the client
     response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) =
         response_proto(0, "\0");
     send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
@@ -302,10 +327,10 @@ void create_box(void *protocol, box_holder_t *box_holder) {
 }
 
 void remove_box(void *protocol, box_holder_t *box_holder) {
-    DEBUG("remove_box started...");
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
     bool remove_failed = false;
 
+    // Creates the path to the box in the TFS
     char *box_path __attribute__((cleanup(str_cleanup))) =
         calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
@@ -324,21 +349,17 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     }
 
     // Removes box from tfs
-    DEBUG("Removing box '%s' from tfs", box_path);
     ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
-    DEBUG("Finished removing box");
 
-    // Todo: close all related subscribers and publishers
     if (box_holder_remove(box_holder, request->box_name) == 0 &&
         remove_failed == false) {
-        DEBUG("Success removing box '%s'", request->box_name);
         // Box was removed successfully
         response_proto_t *res
             __attribute__((cleanup(response_proto_t_cleanup))) =
                 response_proto(0, "\0");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
     } else {
-        DEBUG("Box removal failed!");
+        WARN("Box removal failed!");
         // Error while removing box
         char *error_msg __attribute__((cleanup(str_cleanup))) =
             calloc(MSG_SIZE, sizeof(char));
@@ -355,7 +376,6 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
 }
 
 void list_boxes(void *protocol, box_holder_t *box_holder) {
-    DEBUG("list_boxes started...");
     list_boxes_request_proto_t *request =
         (list_boxes_request_proto_t *)protocol;
 
