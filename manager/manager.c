@@ -80,6 +80,9 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     // Reads all messages
     int rx = open_pipe(client_pipe_name, O_RDONLY, true);
 
+    list_boxes_response_proto_t *response
+        __attribute__((cleanup(ls_boxes_resp_proto_cleanup)));
+
     // Breaks in the last box or if there was an error in the server side
     while (true) {
         // temporary int opcode
@@ -95,9 +98,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
         ALWAYS_ASSERT(opcode == LIST_BOXES_RESPONSE, "Received invalid opcode");
         ALWAYS_ASSERT(rs == sizeof(uint8_t), "Failed to read op code");
-        list_boxes_response_proto_t *response
-            __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
-                (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
+        response = (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
 
         responses[curr_index] = response;
         curr_index++;

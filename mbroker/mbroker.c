@@ -117,6 +117,6 @@ int main(int argc, char **argv) {
         pcq_enqueue(&pc_queue, obj);
     }
 
-    //Let operating system cleanup.
+    // Let operating system cleanup.
     DEBUG("Program finished successfully.");
 }

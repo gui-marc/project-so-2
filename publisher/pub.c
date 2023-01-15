@@ -52,6 +52,7 @@ int main(int argc, char **argv) {
     char *msg_buf __attribute__((cleanup(str_cleanup))) =
         gg_calloc(MSG_SIZE, sizeof(char));
     int ret = 0;
+    DEBUG("Entering publisher loop...");
     while (to_continue) {
         if (fgets(msg_buf, MSG_SIZE, stdin) == NULL) {
             PANIC("fgets failed to read from stdin");
