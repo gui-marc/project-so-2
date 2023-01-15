@@ -76,5 +76,6 @@ int main(int argc, char **argv) {
     // Ctrl-D)," "deve encerrar a sessão fechando o named pipe.""
     DEBUG("Received SIGPIPE (technically EPIPE), quitting")
     gg_close(pipe_fd);
+    unlink(pipe_name);
     return 0;
 }

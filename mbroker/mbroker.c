@@ -27,11 +27,16 @@
 
 #define MAX_BOXES 1024
 
+const char *register_pipe_name;
+
 /**
  * @brief Set the app to end
  *
  */
-void sig_handler() { exit(0); }
+void sig_handler() {
+    unlink(register_pipe_name);
+    exit(0);
+}
 
 int main(int argc, char **argv) {
     // Must have at least 3 arguments
@@ -41,7 +46,7 @@ int main(int argc, char **argv) {
 
     box_holder_t box_holder;
 
-    const char *register_pipe_name = argv[1];
+    register_pipe_name = argv[1];
     const char *max_sessions_str = argv[2];
     size_t max_sessions = (size_t)atoi(max_sessions_str);
 

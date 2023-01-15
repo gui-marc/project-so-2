@@ -76,5 +76,6 @@ int main(int argc, char **argv) {
     fprintf(stdout, "\n%d\n", messages_received);
 
     gg_close(rx);
+    unlink(pipe_name);
     return 0;
 }

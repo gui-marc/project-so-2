@@ -194,7 +194,6 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
 
     // Open the pipe to receive the response
     int rx = open_pipe(client_pipe_name, O_RDONLY, true);
-
     // The response protocol code
     uint8_t opcode = 0;
     ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t), false);
@@ -245,7 +244,9 @@ int main(int argc, char **argv) {
     } else {
         // Invalid operation
         print_usage();
+        unlink(pipe_name);
         return -1;
     }
+    unlink(pipe_name);
     return 0;
 }
