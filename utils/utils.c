@@ -29,7 +29,6 @@ void str_cleanup(char **ptr) { mem_cleanup((void **)ptr); }
 
 void ustr_cleanup(unsigned char **ptr) { mem_cleanup((void **)ptr); }
 
-
 /**
  * Wrappers to functions that may error with EINTR.
  * Syscalls might fail if a signal gets issued, simply retry them until that
@@ -53,18 +52,20 @@ int gg_open(const char *path, int flag) {
 
 void gg_free(void **ptr) { mem_cleanup(ptr); }
 
-int gg_close(const int fd) {
+void gg_close(const int fd) {
     int r = -1;
     while (true) {
         r = close(fd);
         if (r != -1) {
-            return r;
+            return;
         }
         if (errno == EINTR) {
             continue;
         }
     }
-    return r;
+    if (r == -1) {
+        WARN("Call to gg_close failed: %s", strerror(errno));
+    }
 }
 
 ssize_t gg_read(const int fd, void *buf, size_t count) {

@@ -43,8 +43,7 @@ int main(int argc, char **argv) {
 
     DEBUG("Sent register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(regpipe_fd, REGISTER_PUBLISHER, request);
-    ALWAYS_ASSERT(gg_close(regpipe_fd) == 0, "Failed to close register pipe!");
-
+    gg_close(regpipe_fd);
     DEBUG("Opening client pipe...");
     int pipe_fd = open_pipe(pipe_name, O_WRONLY);
 

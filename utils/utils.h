@@ -13,7 +13,7 @@ void ustr_cleanup(unsigned char **ptr);
 
 int gg_open(const char *path, int flag);
 
-int gg_close(const int fd);
+void gg_close(const int fd);
 
 ssize_t gg_read(const int fd, void *buf, size_t count);
 
