@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 #include <stdint.h>
+#include "protocols.h"
+
 typedef struct queue_obj_t {
     CODES opcode;
     void *protocol;
