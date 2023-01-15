@@ -13,7 +13,7 @@
 #include "utils.h"
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE);
+    set_log_level(LOG_NORMAL);
     if (argc != 4) {
         fprintf(stderr,
                 "usage: pub <register_pipe_name> <pipe_name> <box_name>\n");

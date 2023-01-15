@@ -36,7 +36,7 @@ void sigint_handler() {
 }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE); // TODO: Remove
+    set_log_level(LOG_NORMAL); // TODO: Remove
     // Must have at least 3 arguments
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");

@@ -18,11 +18,21 @@
 
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
-static int cmp_response(const void *p1, const void *p2) {
-    list_boxes_response_proto_t *r1 = (list_boxes_response_proto_t *)p1;
-    list_boxes_response_proto_t *r2 = (list_boxes_response_proto_t *)p2;
-    return strcmp(r2->box_name, r1->box_name);
-}
+void bubble_sort_responses(list_boxes_response_proto_t **responses,
+                           size_t size) {
+    size_t i, j;
+    for (i = 0; i < size - 1; i++)
+
+        // Last i elements are already in place
+        for (j = 0; j < size - i - 1; j++)
+            if (strcmp(responses[j]->box_name, responses[j + 1]->box_name) >
+                0) {
+                // Swap elements
+                list_boxes_response_proto_t *tmp = responses[j + 1];
+                responses[j + 1] = responses[j];
+                responses[j] = tmp;
+            }
+};
 
 static void print_usage() {
     fprintf(stderr,
@@ -81,8 +91,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
     // Sorts all things
     DEBUG("Sorting boxes");
-    qsort(responses, curr_index + 1, sizeof(list_boxes_response_proto_t),
-          cmp_response);
+    bubble_sort_responses(responses, curr_index);
 
     // Prints all boxes
     DEBUG("Printing boxes");
@@ -161,7 +170,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
 }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_NORMAL); // TODO: Remove
+    set_log_level(LOG_VERBOSE); // TODO: Remove
     DEBUG("argc = '%d'", argc);
     if (!(argc == 4 || argc == 5)) {
         print_usage();

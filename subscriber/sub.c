@@ -19,7 +19,7 @@ void sigint_handler() {
 }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE);
+    set_log_level(LOG_QUIET);
     if (argc != 4) {
         fprintf(stderr,
                 "usage: sub <register_pipe_name> <pipe_name> <box_name>\n");
