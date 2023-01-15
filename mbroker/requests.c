@@ -63,7 +63,6 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     register_pub_proto_t *request = (register_pub_proto_t *)protocol;
     DEBUG("Starting register_publisher for client_pipe '%s'",
           request->client_named_pipe_path);
-    // TODO: O_WRONLY | O_CREAT faz sentido sequer?
     int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
@@ -224,14 +223,10 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     DEBUG("box_name = '%s'", request->box_name);
     // Create the new file for the box
     // TFS's max filename is 40, so we're good
-    // char box_path[BOX_NAME_SIZE + 1];
     char *box_path =
         calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
-    // box_path[0] = "/";
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
-    // strcat(box_path, "/");
-    // strcat(box_path, request->box_name);
 
     DEBUG("Saving box at path: '%s'", box_path);
     int fd = tfs_open(box_path, TFS_O_CREAT | TFS_O_TRUNC);
@@ -242,6 +237,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
         send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
         tfs_close(fd);
         close(pipe_fd);
+        free(box_path);
         free(res);
         return;
     }
@@ -257,41 +253,51 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
     close(pipe_fd);
     free(res);
+    free(box_path);
     return;
 }
 
 void remove_box(void *protocol, box_holder_t *box_holder) {
     DEBUG("remove_box started...");
     remove_box_proto_t *request = (remove_box_proto_t *)protocol;
+    bool remove_failed = false;
 
-    char box_path[BOX_NAME_SIZE + 1] = {};
-    strcat(box_path, "/");
-    strcat(box_path, request->box_name);
+    char *box_path =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    strcpy(box_path, "/");
+    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
 
-    int wx = open_pipe(request->client_named_pipe_path, O_CREAT | O_WRONLY);
+    int wx = open_pipe(request->client_named_pipe_path, O_WRONLY);
+    // Removes box from TFS
+    DEBUG("Removing box '%s' from TFS", box_path);
+    if (tfs_unlink(box_path) == -1) {
+        WARN("Failed to remove box '%s' from TFS.", box_path);
+        remove_failed = true;
+    }
 
-    if (box_holder_remove(box_holder, request->box_name) == 0) {
+    // Todo: close all related subscribers and publishers
+    if (box_holder_remove(box_holder, request->box_name) == 0 &&
+        remove_failed == false) {
+        DEBUG("Success removing box '%s'", request->box_name);
         // Box was removed successfully
         response_proto_t *res = response_proto(0, "\0");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
         free(res);
     } else {
+        DEBUG("Box removal failed!");
         // Error while removing box
         char *error_msg = calloc(MSG_SIZE, sizeof(char));
         snprintf(error_msg, MSG_SIZE, "Failed to remove box with name: %s",
                  request->box_name);
-        response_proto_t *res = response_proto(0, error_msg);
-        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        free(error_msg);
-        free(res);
-    }
-    // Removes box from TFS
-    DEBUG("Removing box '%s' from TFS", box_path);
-    ALWAYS_ASSERT(tfs_unlink(box_path) == 0, "Failed to remove box");
-    DEBUG("Finished removing box %s from TFS", box_path);
-    // Todo: close all related subscribers and publishers
+        response_proto_t *res = response_proto(-1, error_msg);
 
+        send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
+        free(res);
+        free(error_msg);
+    }
+    free(box_path);
     close(wx);
+    return;
 }
 
 void list_boxes(void *protocol, box_holder_t *box_holder) {
