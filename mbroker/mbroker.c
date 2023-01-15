@@ -27,12 +27,11 @@
 
 #define MAX_BOXES 1024
 
-
 /**
  * @brief Set the app to end
  *
  */
-void sig_handler() { exit(0);  }
+void sig_handler() { exit(0); }
 
 int main(int argc, char **argv) {
     // Must have at least 3 arguments

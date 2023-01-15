@@ -319,7 +319,7 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
         gg_calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1));
     strcpy(box_path, "/");
     strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
-    create_pipe(request->client_named_pipe_path);
+
     int wx = open_pipe(request->client_named_pipe_path, O_WRONLY, true);
 
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
