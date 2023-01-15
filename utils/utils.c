@@ -29,7 +29,6 @@ void ustr_cleanup(unsigned char **ptr) { mem_cleanup((void **)ptr); }
 
 void mutex_cleanup(pthread_mutex_t *mutex) { pthread_mutex_destroy(mutex); }
 
-
 /**
  * Wrappers to functions that may error with EINTR.
  * Syscalls might fail if a signal gets issued, simply retry them until that
@@ -51,9 +50,7 @@ int gg_open(const char *path, int flag) {
     return r;
 }
 
-void gg_free(void **ptr) { 
-    mem_cleanup(ptr); 
-}
+void gg_free(void **ptr) { mem_cleanup(ptr); }
 
 int gg_close(const int fd) {
     int r = -1;
@@ -68,4 +65,3 @@ int gg_close(const int fd) {
     }
     return r;
 }
-

@@ -57,7 +57,7 @@ int pcq_destroy(pc_queue_t *queue) {
 
     // Frees all buffer related memory
     for (size_t i = 0; i < queue->pcq_capacity; i++) {
-        gg_free((void **) &queue->pcq_buffer[i]);
+        gg_free((void **)&queue->pcq_buffer[i]);
     }
 
     return 0;

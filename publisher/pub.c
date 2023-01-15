@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
     DEBUG("Sent register publisher code %u", REGISTER_PUBLISHER);
     send_proto_string(regpipe_fd, REGISTER_PUBLISHER, request);
-    ALWAYS_ASSERT(close(regpipe_fd) == 0, "Failed to close register pipe!");
+    ALWAYS_ASSERT(gg_close(regpipe_fd) == 0, "Failed to close register pipe!");
 
     DEBUG("Opening client pipe...");
     int pipe_fd = open(pipe_name, O_WRONLY);
@@ -83,6 +83,6 @@ int main(int argc, char **argv) {
     // "Se o publisher receber um EOF (End Of File, por exemplo, com um
     // Ctrl-D)," "deve encerrar a sessão fechando o named pipe.""
     DEBUG("Received SIGPIPE (technically EPIPE), quitting")
-    close(pipe_fd);
+    gg_close(pipe_fd);
     return 0;
 }

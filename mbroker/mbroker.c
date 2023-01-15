@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
         }
 
         void *protocol = parse_protocol(rx, prot_code);
-        //obj will be freed by worker thread
+        // obj will be freed by worker thread
         queue_obj_t *obj = calloc(1, sizeof(queue_obj_t));
 
         obj->opcode = prot_code;

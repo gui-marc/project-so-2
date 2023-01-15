@@ -31,8 +31,8 @@ void *listen_for_requests(void *args) {
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         DEBUG("Dequeued object with code %u", obj->opcode);
         parse_request(obj, box_holder);
-        gg_free((void **) &obj->protocol);
-        gg_free((void **) &obj);
+        gg_free((void **)&obj->protocol);
+        gg_free((void **)&obj);
     }
     return NULL;
 }
@@ -91,7 +91,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
             DEBUG("tfs_open of file '%s' failed.", box_path);
         }
         DEBUG("Box does not exist, quitting.")
-        close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
+        gg_close(pipe_fd); // Equivalent to sending EOF.
         tfs_close(fd);
         return;
     }
@@ -100,7 +100,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_lock(&box->has_publisher_lock);
     if (box->has_publisher == true) {
         DEBUG("Box already has a publisher. Quitting.");
-        close(pipe_fd);
+        gg_close(pipe_fd);
         tfs_close(fd);
         pthread_mutex_unlock(&box->has_publisher_lock);
         return;
@@ -159,7 +159,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_lock(&box->has_publisher_lock);
     box->has_publisher = false;
     pthread_mutex_unlock(&box->has_publisher_lock);
-    close(pipe_fd);
+    gg_close(pipe_fd);
     tfs_close(fd);
     DEBUG("Thread for publisher of '%s' finished", request->box_name);
     return;
@@ -172,7 +172,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
         DEBUG("Failed to find metadata box for %s", request->box_name);
-        close(pipe_fd);
+        gg_close(pipe_fd);
         return;
     }
     // Create the new file for the box
@@ -184,7 +184,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     int fd = tfs_open(box_path, 0);
     if (fd == -1) {
         DEBUG("Failed to open TFS file %s", box_path);
-        close(pipe_fd);
+        gg_close(pipe_fd);
         return;
     }
 
@@ -263,7 +263,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
             __attribute__((cleanup(response_proto_t_cleanup))) =
                 response_proto(-1, ERR_BOX_ALREADY_EXISTS);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
-        close(pipe_fd);
+        gg_close(pipe_fd);
         return;
     }
     DEBUG("box_name = '%s'", request->box_name);
@@ -284,7 +284,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
                 response_proto(-1, ERR_BOX_CREATION);
         send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
         tfs_close(fd);
-        close(pipe_fd);
+        gg_close(pipe_fd);
         return;
     }
     DEBUG("Finished saving box");
@@ -297,7 +297,7 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) =
         response_proto(0, "\0");
     send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
-    close(pipe_fd);
+    gg_close(pipe_fd);
     return;
 }
 
@@ -315,8 +315,9 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
 
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
-        response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) =
-            response_proto(-1, "Box with that name was not found");
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, "Box with that name was not found");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
         gg_close(wx);
         return;
@@ -345,11 +346,13 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
                  request->box_name);
 
         // Removed attribute cleanup
-        response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) = response_proto(-1, error_msg);
+        response_proto_t *res
+            __attribute__((cleanup(response_proto_t_cleanup))) =
+                response_proto(-1, error_msg);
 
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
     }
-    close(wx);
+    gg_close(wx);
     return;
 }
 
@@ -373,9 +376,11 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
         pthread_mutex_lock(&box->total_message_size_lock);
         pthread_mutex_lock(&box->has_publisher_lock);
         pthread_mutex_lock(&box->subscribers_count_lock);
-        list_boxes_response_proto_t *res __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =  list_boxes_response_proto(
-            last, box->name, box->total_message_size, box->has_publisher,
-            box->subscribers_count);
+        list_boxes_response_proto_t *res
+            __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
+                list_boxes_response_proto(
+                    last, box->name, box->total_message_size,
+                    box->has_publisher, box->subscribers_count);
         pthread_mutex_unlock(&box->total_message_size_lock);
         pthread_mutex_unlock(&box->has_publisher_lock);
         pthread_mutex_unlock(&box->subscribers_count_lock);
@@ -388,12 +393,13 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
     if (box_holder->current_size == 0) {
         char *msg __attribute__((cleanup(str_cleanup))) =
             calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
-        list_boxes_response_proto_t *res __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
-            list_boxes_response_proto(1, msg, 0, false, 0);
+        list_boxes_response_proto_t *res
+            __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
+                list_boxes_response_proto(1, msg, 0, false, 0);
         send_proto_string(wr, LIST_BOXES_RESPONSE, res);
     }
 
     pthread_mutex_unlock(&box_holder->lock);
 
-    close(wr);
+    gg_close(wr);
 }
