@@ -96,6 +96,10 @@ typedef struct __attribute__((__packed__)) basic_msg_proto_t {
 
 void response_proto_t_cleanup(response_proto_t **ptr);
 
+void request_proto_t_cleanup(request_proto_t **ptr);
+
+void ls_boxes_resp_proto_cleanup(list_boxes_response_proto_t **ptr);
+
 uint8_t recv_opcode(const int fd);
 
 /**

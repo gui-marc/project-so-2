@@ -76,7 +76,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
 
         ALWAYS_ASSERT(opcode == LIST_BOXES_RESPONSE, "Received invalid opcode");
         ALWAYS_ASSERT(rs == sizeof(uint8_t), "Failed to read op code");
-        list_boxes_response_proto_t *response =
+        list_boxes_response_proto_t *response __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
             (list_boxes_response_proto_t *)parse_protocol(rx, opcode);
 
         DEBUG("Received box %s", response->box_name);
@@ -117,7 +117,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     DEBUG("start create_box...");
     // Send the request to the mbroker
     DEBUG("box_name = '%s'", box_name);
-    request_proto_t *request = request_proto(client_pipe_name, box_name);
+    request_proto_t *request __attribute__((cleanup(request_proto_t_cleanup))) = request_proto(client_pipe_name, box_name);
 
     create_pipe(client_pipe_name);
     int wx = open_pipe(server_pipe_name, O_WRONLY);
@@ -129,7 +129,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Failed to read op code");
 
-    response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
+    response_proto_t *response __attribute__((cleanup(response_proto_t_cleanup))) = (response_proto_t *)parse_protocol(rx, opcode);
     ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker, print it
@@ -156,7 +156,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     uint8_t opcode = 0;
     ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Invalid read size");
-    response_proto_t *response = (response_proto_t *)parse_protocol(rx, opcode);
+    response_proto_t *response __attribute__((cleanup(response_proto_t_cleanup))) = (response_proto_t *)parse_protocol(rx, opcode);
     ALWAYS_ASSERT(unlink(client_pipe_name) == 0, "Failed to remove pipe");
 
     // If there was an error in the mbroker side

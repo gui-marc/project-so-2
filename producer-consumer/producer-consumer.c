@@ -4,7 +4,7 @@
 
 #include "logging.h"
 #include "producer-consumer.h"
-
+#include "utils.h"
 // Todo: add more error treatment
 
 int pcq_create(pc_queue_t *queue, size_t capacity) {

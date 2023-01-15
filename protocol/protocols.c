@@ -15,6 +15,14 @@ void response_proto_t_cleanup(response_proto_t **ptr) {
     mem_cleanup((void **)ptr);
 }
 
+void request_proto_t_cleanup(request_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
+
+void ls_boxes_resp_proto_cleanup(list_boxes_response_proto_t **ptr) {
+    mem_cleanup((void **)ptr);
+}
+
 // Reads an opcode from an open named pipe.
 //  -1 on fail.
 uint8_t recv_opcode(const int fd) {

@@ -315,11 +315,10 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
 
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
     if (box == NULL) {
-        response_proto_t *res =
+        response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) =
             response_proto(-1, "Box with that name was not found");
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
-        gg_free((void **) &res);
-        close(wx);
+        gg_close(wx);
         return;
     }
 
@@ -346,7 +345,7 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
                  request->box_name);
 
         // Removed attribute cleanup
-        response_proto_t *res = response_proto(-1, error_msg);
+        response_proto_t *res __attribute__((cleanup(response_proto_t_cleanup))) = response_proto(-1, error_msg);
 
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
     }
@@ -374,7 +373,7 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
         pthread_mutex_lock(&box->total_message_size_lock);
         pthread_mutex_lock(&box->has_publisher_lock);
         pthread_mutex_lock(&box->subscribers_count_lock);
-        list_boxes_response_proto_t *res = list_boxes_response_proto(
+        list_boxes_response_proto_t *res __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =  list_boxes_response_proto(
             last, box->name, box->total_message_size, box->has_publisher,
             box->subscribers_count);
         pthread_mutex_unlock(&box->total_message_size_lock);
@@ -389,7 +388,7 @@ void list_boxes(void *protocol, box_holder_t *box_holder) {
     if (box_holder->current_size == 0) {
         char *msg __attribute__((cleanup(str_cleanup))) =
             calloc(BOX_NAME_SIZE, sizeof(char)); // String with 32 '\0's
-        list_boxes_response_proto_t *res =
+        list_boxes_response_proto_t *res __attribute__((cleanup(ls_boxes_resp_proto_cleanup))) =
             list_boxes_response_proto(1, msg, 0, false, 0);
         send_proto_string(wr, LIST_BOXES_RESPONSE, res);
     }

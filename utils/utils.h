@@ -11,4 +11,8 @@ void str_cleanup(char **ptr);
 
 void ustr_cleanup(unsigned char **ptr);
 
+int gg_open(const char *path, int flag);
+
+int gg_close(const int fd);
+
 #endif // __UTILS_UTILS_H__

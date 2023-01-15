@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
         }
 
         void *protocol = parse_protocol(rx, prot_code);
-
+        //obj will be freed by worker thread
         queue_obj_t *obj = calloc(1, sizeof(queue_obj_t));
 
         obj->opcode = prot_code;
@@ -130,5 +130,6 @@ int main(int argc, char **argv) {
     DEBUG("Leaving program...");
     pcq_destroy(&pc_queue);
     box_holder_destroy(&box_holder);
+    ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS.");
     DEBUG("Program finished successfully");
 }

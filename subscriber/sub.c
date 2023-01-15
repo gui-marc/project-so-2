@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     // Redefine SIGINT treatment
     signal(SIGINT, sigint_handler);
 
-    request_proto_t *request =
+    request_proto_t *request __attribute__((cleanup(request_proto_t_cleanup))) =
         (request_proto_t *)request_proto(pipe_name, box_name);
 
     ALWAYS_ASSERT(strcmp(pipe_name, request->client_named_pipe_path) == 0,
