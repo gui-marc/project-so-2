@@ -29,7 +29,6 @@ void str_cleanup(char **ptr) { mem_cleanup((void **)ptr); }
 
 void ustr_cleanup(unsigned char **ptr) { mem_cleanup((void **)ptr); }
 
-void mutex_cleanup(pthread_mutex_t *mutex) { pthread_mutex_destroy(mutex); }
 
 /**
  * Wrappers to functions that may error with EINTR.
