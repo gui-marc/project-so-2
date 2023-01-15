@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
                 "usage: pub <register_pipe_name> <pipe_name> <box_name>\n");
         return -1;
     }
-    // https://piazza.com/class/l92u0ocmbv05rk/post/108
+
+    // Ignores the SIGPIPE
     signal(SIGPIPE, SIG_IGN);
 
     char *register_pipe_name = argv[1];
@@ -35,9 +36,6 @@ int main(int argc, char **argv) {
     ALWAYS_ASSERT(strcmp(box_name, request->box_name) == 0,
                   "error while reading box_name");
 
-    DEBUG("client_named_pipe: %s\n", request->client_named_pipe_path);
-
-    DEBUG("Creating client pipe...");
     create_pipe(pipe_name);
 
     DEBUG("Opening register pipe.");
@@ -51,7 +49,6 @@ int main(int argc, char **argv) {
     int pipe_fd = open_pipe(pipe_name, O_WRONLY);
 
     char *proto_msg;
-    DEBUG("Going to read input from stdin.");
     bool to_continue = true;
     char *msg_buf __attribute__((cleanup(str_cleanup))) =
         gg_calloc(MSG_SIZE, sizeof(char));
@@ -64,13 +61,10 @@ int main(int argc, char **argv) {
         if (ptr) {
             *ptr = '\0';
         }
-        DEBUG("Going to send string '%s' through client pipe '%s'", msg_buf,
-              pipe_name);
 
         proto_msg = message_proto(msg_buf);
 
         ret = send_proto_string(pipe_fd, PUBLISHER_MESSAGE, proto_msg);
-        DEBUG("ret = %d", ret);
         if (ret == -1) {
             INFO("mbroker closed client pipe - quitting.");
             break;

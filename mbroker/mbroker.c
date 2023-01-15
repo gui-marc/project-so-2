@@ -27,16 +27,16 @@
 
 #define MAX_BOXES 1024
 
-uint8_t sigint_called = 0;
+// Variable used to stop listening for requests
+uint8_t must_exit = 0;
 
-void sigint_handler() {
-    // WARNING: can't use logging functions here! fprintf isn't signal-safe.
-    sigint_called = 1;
-    // exit(1);
-}
+/**
+ * @brief Set the app to end
+ *
+ */
+void sig_handler() { must_exit = 1; }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE); // TODO: Remove
     // Must have at least 3 arguments
     if (argc < 3) {
         PANIC("usage: mbroker <register_pipe_name> <max_sessions>");
@@ -48,21 +48,24 @@ int main(int argc, char **argv) {
     const char *max_sessions_str = argv[2];
     size_t max_sessions = (size_t)atoi(max_sessions_str);
 
-    DEBUG("Creating box holder...")
     // Creates box holder
     if (box_holder_create(&box_holder, MAX_BOXES) == -1) {
         PANIC("Failed to create box holder\n");
     }
-    DEBUG("Done creating box holder.")
 
     // Bootstrap tfs file system
     ALWAYS_ASSERT(tfs_init(NULL) != -1, "Failed to initialize TFS");
 
-    // Redefine SIGINT treatment
-    signal(SIGINT, sigint_handler);
+    // Redefine signals treatment
+    signal(SIGINT, sig_handler);
+    signal(SIGPIPE, sig_handler);
+    signal(SIGQUIT, sig_handler);
+    signal(SIGTERM, sig_handler);
+    signal(SIGUSR1, sig_handler);
 
     // producer-consumer queue
     pc_queue_t pc_queue;
+
     // Creates the producer-consumer queue
     if (pcq_create(&pc_queue, max_sessions) == -1) {
         PANIC("failed to create queue\n");
@@ -77,7 +80,6 @@ int main(int argc, char **argv) {
     args[0] = &pc_queue;
     args[1] = &box_holder;
     for (int i = 0; i < max_sessions; i++) {
-        DEBUG("Creating thread %d", i);
         pthread_create(&threads[i], NULL, listen_for_requests, args);
     }
 
@@ -88,7 +90,7 @@ int main(int argc, char **argv) {
     DEBUG("Finished opening register pipe");
 
     // Listen to events in the register
-    while (sigint_called == 0) {
+    while (must_exit == 0) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
         ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t));
@@ -112,18 +114,19 @@ int main(int argc, char **argv) {
         obj->opcode = prot_code;
         obj->protocol = protocol;
 
-        DEBUG("enqueue request of protocol: %u", obj->opcode);
-
         pcq_enqueue(&pc_queue, obj);
     }
 
-    DEBUG("Killing threads");
+    // Sends a signal to end each thread
     for (size_t i = 0; i < max_sessions; i++) {
-        pthread_kill(threads[i], SIGINT);
+        pthread_kill(threads[i], SIGUSR1);
     }
-    DEBUG("Finished killing threads");
 
-    DEBUG("Leaving program...");
+    // Waits for each thread to end
+    for (size_t i = 0; i < max_sessions; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
     pcq_destroy(&pc_queue);
     box_holder_destroy(&box_holder);
     ALWAYS_ASSERT(tfs_destroy() != -1, "Failed to destroy TFS.");

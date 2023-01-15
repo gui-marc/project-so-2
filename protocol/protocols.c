@@ -34,13 +34,11 @@ uint8_t recv_opcode(const int fd) {
         WARN("Possible wrong opcode");
     }
 
-    DEBUG("Received the opcode: %u", opcode);
     return opcode;
 }
 
 int send_proto_string(const int fd, const uint8_t opcode, const void *proto) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
-    DEBUG("Got opcode %d", opcode);
     size_t size = proto_size(opcode) + sizeof(uint8_t);
     unsigned char *final __attribute__((cleanup(ustr_cleanup))) =
         gg_calloc(1, size);
@@ -86,7 +84,6 @@ int open_pipe(const char npipe_path[NPIPE_PATH_SIZE], int _flag) {
 }
 
 void *parse_protocol(const int rx, const uint8_t opcode) {
-    DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
     void *protocol = gg_calloc(1, proto_sz);
     ssize_t sz = gg_read(rx, protocol, proto_sz);
