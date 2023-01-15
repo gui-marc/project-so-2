@@ -105,6 +105,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
                const char *box_name) {
     DEBUG("start create_box...");
     // Send the request to the mbroker
+    DEBUG("box_name = '%s'", box_name);
     request_proto_t *request = request_proto(client_pipe_name, box_name);
 
     create_pipe(client_pipe_name);

@@ -35,9 +35,9 @@ typedef enum codes_e {
 /**
  * Error Messages
  */
-#define ERR_BOX_NOT_FOUND "Box not found."
-#define ERR_BOX_ALREADY_EXISTS "Box already exists."
-#define ERR_BOX_CREATION "An error ocurred while creating the box."
+#define ERR_BOX_NOT_FOUND "Box not found.\n"
+#define ERR_BOX_ALREADY_EXISTS "Box already exists.\n"
+#define ERR_BOX_CREATION "An error ocurred while creating the box.\n"
 
 /**
  * Protocol

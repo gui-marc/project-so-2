@@ -206,7 +206,6 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
 // FIXME: isto dá segmentation fault a remover uma caixa que não existe
 void create_box(void *protocol, box_holder_t *box_holder) {
     DEBUG("create_box started...");
-    DEBUG("Creating box...")
     create_box_proto_t *request = (create_box_proto_t *)protocol;
 
     DEBUG("opening client named pipe %s", request->client_named_pipe_path);
@@ -215,31 +214,38 @@ void create_box(void *protocol, box_holder_t *box_holder) {
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
 
     if (box != NULL) {
-        DEBUG("No box was found");
+        DEBUG("Box already exists - quitting.");
         response_proto_t *res = response_proto(-1, ERR_BOX_ALREADY_EXISTS);
         send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
         close(pipe_fd);
         free(res);
         return;
     }
-
+    DEBUG("box_name = '%s'", request->box_name);
     // Create the new file for the box
-    char box_path[BOX_NAME_SIZE + 1];
-    strcat(box_path, "/");
-    strcat(box_path, request->box_name);
+    // TFS's max filename is 40, so we're good
+    // char box_path[BOX_NAME_SIZE + 1];
+    char *box_path =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    // box_path[0] = "/";
+    strcpy(box_path, "/");
+    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
+    // strcat(box_path, "/");
+    // strcat(box_path, request->box_name);
 
-    DEBUG("Saving box at path: %s", box_path);
+    DEBUG("Saving box at path: '%s'", box_path);
     int fd = tfs_open(box_path, TFS_O_CREAT | TFS_O_TRUNC);
-    DEBUG("Finished saving box");
 
     if (fd == -1) {
-        DEBUG("Error while saving box in the tfs");
+        DEBUG("Error while saving box in TFS");
         response_proto_t *res = response_proto(-1, ERR_BOX_CREATION);
-        send_proto_string(pipe_fd, REMOVE_BOX_RESPONSE, res);
+        send_proto_string(pipe_fd, CREATE_BOX_RESPONSE, res);
         tfs_close(fd);
         close(pipe_fd);
         free(res);
+        return;
     }
+    DEBUG("Finished saving box");
 
     box_metadata_t *new_box =
         box_metadata_create(request->box_name, max_sessions);
@@ -272,8 +278,8 @@ void remove_box(void *protocol, box_holder_t *box_holder) {
     } else {
         // Error while removing box
         char *error_msg = calloc(MSG_SIZE, sizeof(char));
-        sprintf(error_msg, "Failed to remove box with name: %s",
-                request->box_name);
+        snprintf(error_msg, MSG_SIZE, "Failed to remove box with name: %s",
+                 request->box_name);
         response_proto_t *res = response_proto(0, error_msg);
         send_proto_string(wx, REMOVE_BOX_RESPONSE, res);
         free(error_msg);
