@@ -11,6 +11,7 @@
 #include "logging.h"
 #include "protocols.h"
 #include "string.h"
+#include "utils.h"
 
 #define MAX_BOX_NAMES 1024
 
@@ -65,7 +66,7 @@ int list_boxes(const char *server_pipe_name, const char *client_pipe_name) {
     while (true) {
         // temporary int opcode
         int t_opcode = 0;
-        ssize_t rs = read(rx, &t_opcode, sizeof(uint8_t));
+        ssize_t rs = gg_read(rx, &t_opcode, sizeof(uint8_t));
 
         if (t_opcode == EOF) {
             WARN("Error in the server side");
@@ -128,7 +129,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
 
     uint8_t opcode = 0;
     DEBUG("Waiting for mbroker's response");
-    ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Failed to read op code");
 
     response_proto_t *response
@@ -158,7 +159,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
     int rx = open_pipe(client_pipe_name, O_RDONLY);
 
     uint8_t opcode = 0;
-    ssize_t rs = read(rx, &opcode, sizeof(uint8_t));
+    ssize_t rs = gg_read(rx, &opcode, sizeof(uint8_t));
     ALWAYS_ASSERT(rs != -1, "Invalid read size");
     response_proto_t *response
         __attribute__((cleanup(response_proto_t_cleanup))) =

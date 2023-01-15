@@ -15,4 +15,6 @@ int gg_open(const char *path, int flag);
 
 int gg_close(const int fd);
 
+ssize_t gg_read(const int fd, void *buf, size_t count);
+
 #endif // __UTILS_UTILS_H__

@@ -23,6 +23,7 @@
 #include "producer-consumer.h"
 #include "protocols.h"
 #include "requests.h"
+#include "utils.h"
 
 #define MAX_BOXES 1024
 
@@ -90,7 +91,7 @@ int main(int argc, char **argv) {
     while (sigint_called == 0) {
         uint8_t prot_code = 0;
         DEBUG("Going to read from register pipe, may fall asleep.");
-        ssize_t ret = read(rx, &prot_code, sizeof(uint8_t));
+        ssize_t ret = gg_read(rx, &prot_code, sizeof(uint8_t));
         // A dummy writer, to avoid active wait - we never actually use it.
         const int dummy_fd = gg_open(register_pipe_name, O_WRONLY);
         DEBUG("dummy_fd = %d", dummy_fd);

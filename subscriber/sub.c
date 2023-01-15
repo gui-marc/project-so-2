@@ -10,6 +10,7 @@
 #include "betterassert.h"
 #include "logging.h"
 #include "protocols.h"
+#include "utils.h"
 
 int sigint_called = 0;
 

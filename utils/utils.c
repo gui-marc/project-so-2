@@ -65,3 +65,17 @@ int gg_close(const int fd) {
     }
     return r;
 }
+
+ssize_t gg_read(const int fd, void *buf, size_t count) {
+    ssize_t r = -1;
+    while (0) {
+        r = read(fd, buf, count);
+        if (r != -1) {
+            return r;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+    }
+    return r;
+}

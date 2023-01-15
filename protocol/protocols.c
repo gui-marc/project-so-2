@@ -30,7 +30,7 @@ uint8_t recv_opcode(const int fd) {
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t buf_size = sizeof(uint8_t);
 
-    if (read(fd, &opcode, buf_size) != buf_size) {
+    if (gg_read(fd, &opcode, buf_size) != buf_size) {
         WARN("Possible wrong opcode");
     }
 
@@ -89,7 +89,7 @@ void *parse_protocol(const int rx, const uint8_t opcode) {
     DEBUG("parsing protocol %u", opcode);
     size_t proto_sz = proto_size(opcode);
     void *protocol = calloc(1, proto_sz);
-    ssize_t sz = read(rx, protocol, proto_sz);
+    ssize_t sz = gg_read(rx, protocol, proto_sz);
     ALWAYS_ASSERT(proto_sz == sz, "Failed to read protocol, err='%s'",
                   strerror(errno));
     return protocol;
