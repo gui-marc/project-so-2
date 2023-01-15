@@ -14,6 +14,8 @@
 
 #define MAX_BOX_NAMES 1024
 
+#define NOX_BOXES_FOUND_ERROR "NO BOXES FOUND\n"
+
 #define STR_MATCH(str1, str2) (strcmp(str1, str2) == 0)
 
 static int cmp_response(const void *p1, const void *p2) {
@@ -123,7 +125,7 @@ int create_box(const char *server_pipe_name, const char *client_pipe_name,
 
     // If there was an error in the mbroker, print it
     if (response->return_code != 0) {
-        fprintf(stderr, "%s", response->error_msg);
+        fprintf(stdout, "ERROR %s\n", response->error_msg);
         return -1;
     } else {
         fprintf(stdout, "OK\n");
@@ -150,7 +152,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
 
     // If there was an error in the mbroker side
     if (response->return_code != 0) {
-        fprintf(stderr, "%s", response->error_msg);
+        fprintf(stdout, "ERROR %s\n", response->error_msg);
         return -1;
     } else {
         fprintf(stdout, "OK\n");
@@ -159,7 +161,7 @@ int remove_box(const char *server_pipe_name, const char *client_pipe_name,
 }
 
 int main(int argc, char **argv) {
-    set_log_level(LOG_VERBOSE); // TODO: Remove
+    set_log_level(LOG_NORMAL); // TODO: Remove
     DEBUG("argc = '%d'", argc);
     if (!(argc == 4 || argc == 5)) {
         print_usage();

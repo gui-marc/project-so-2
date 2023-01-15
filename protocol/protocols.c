@@ -18,7 +18,7 @@ void response_proto_t_cleanup(response_proto_t **ptr) {
 // Reads an opcode from an open named pipe.
 //  -1 on fail.
 uint8_t recv_opcode(const int fd) {
-    uint8_t opcode;
+    uint8_t opcode = 0;
     ALWAYS_ASSERT(fd != -1, "Invalid file descriptor");
     size_t buf_size = sizeof(uint8_t);
 
