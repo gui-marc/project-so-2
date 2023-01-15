@@ -66,24 +66,37 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     int pipe_fd = open(request->client_named_pipe_path, O_RDONLY);
     ALWAYS_ASSERT(pipe_fd != -1, "Failed to open client named pipe")
 
-    int fd = tfs_open(request->box_name, TFS_O_APPEND);
+    char *box_path =
+        calloc(1, sizeof(char) * (BOX_NAME_SIZE + 1)); // TODO: free this
+    strcpy(box_path, "/");
+    strncpy(box_path + 1, request->box_name, BOX_NAME_SIZE);
+
+    int fd = tfs_open(box_path, TFS_O_APPEND);
     box_metadata_t *box = box_holder_find_box(box_holder, request->box_name);
-    DEBUG("Checking if box '%s' exists.", request->box_name);
+    DEBUG("Checking if box '%s' exists...", request->box_name);
     // If we couldn't open the box for whatever reason,
     // exit.
     if (fd == -1 || box == NULL) {
-        DEBUG("Box did not exist, quitting.")
+        if (box == NULL) {
+            DEBUG("Opening metadata of box '%s' failed.", request->box_name);
+        } else if (fd == -1) {
+            DEBUG("tfs_open of file '%s' failed.", box_path);
+        }
+        DEBUG("Box does not exist, quitting.")
         close(pipe_fd); // Supposedly, this is equivalent to sending EOF.
         tfs_close(fd);
+        free(box_path);
         return;
     }
     DEBUG("Passed box existence check.");
 
     pthread_mutex_lock(&box->has_publisher_lock);
     if (box->has_publisher == true) {
+        DEBUG("Box already has a publisher. Quitting.");
         close(pipe_fd);
         tfs_close(fd);
         pthread_mutex_unlock(&box->has_publisher_lock);
+        free(box_path);
         return;
     }
     box->has_publisher = true;
@@ -95,8 +108,9 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     size_t written = 0;
     ssize_t wrote;
     size_t msg_len = 0;
-
-    while (0) { // FIXME: Should check a variable! (Maybe create an array that a
+    DEBUG("Entering publisher loop.");
+    while (
+        true) { // FIXME: Should check a variable! (Maybe create an array that a
                 // signal handler changes this thread's variable)
         op = recv_opcode(pipe_fd);
         if (op != PUBLISHER_MESSAGE) {
@@ -139,6 +153,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
+    free(box_path);
     DEBUG("Thread for publisher of '%s' finished", request->box_name);
     return;
 }
