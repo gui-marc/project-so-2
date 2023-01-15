@@ -138,7 +138,5 @@ void *pcq_dequeue(pc_queue_t *queue) {
 
     // Tell the other threads that there is one more free space in the queue
     pthread_cond_signal(&queue->pcq_pusher_condvar);
-
-    queue_obj_t *obj = (queue_obj_t *)first;
     return first;
 };

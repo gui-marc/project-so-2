@@ -15,13 +15,7 @@
 #include "requests.h"
 #include "utils.h"
 
-uint8_t sigpipe_called = 0;
 uint8_t sigusr_called = 0;
-
-/**
- * @brief Handles the SIGPIPE signal. Stops the thread and kills the program.
- */
-void sigpipe_handler() { sigpipe_called = 1; }
 
 /**
  * @brief Handles the SIGUSR1 signal, sent by the mbroker when the main thread
@@ -39,6 +33,7 @@ void *listen_for_requests(void *args) {
     signal(SIGUSR1, sigusr_handler);
 
     while (sigusr_called == 0) {
+        DEBUG("Started dequeuing");
         queue_obj_t *obj = (queue_obj_t *)pcq_dequeue((pc_queue_t *)queue);
         parse_request(obj, box_holder);
         free(obj->protocol);
@@ -128,7 +123,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     box->publisher_idx = pthread_self();
 
     // Redefine SIGINT treatment
-    signal(SIGPIPE, sigpipe_handler);
+    signal(SIGPIPE, SIG_IGN);
 
     uint8_t op;
     publisher_msg_proto_t *pub_msg;
@@ -136,7 +131,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     ssize_t wrote;
     size_t msg_len = 0;
     DEBUG("Entering publisher loop.");
-    while (sigpipe_called == 0) {
+    while (true) {
         // This while loop ends when the pipe is closed (the user closed the
         // publisher client)
 
@@ -153,6 +148,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
         wrote = tfs_write(fd, pub_msg->msg,
                           strlen(pub_msg->msg) + 1); //+1 to include \0
         if (wrote < 0) {
+            DEBUG("Wrote %lu", wrote);
             WARN("Error occurred in tfs_write publisher msg")
             break;
         } else {
@@ -182,6 +178,7 @@ void register_publisher(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->has_publisher_lock);
     close(pipe_fd);
     tfs_close(fd);
+    DEBUG("Leaving publisher");
     return;
 }
 
@@ -220,7 +217,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     pthread_mutex_unlock(&box->subscribers_count_lock);
 
     // Redefine SIGINT treatment
-    signal(SIGPIPE, sigpipe_handler);
+    signal(SIGPIPE, SIG_IGN);
 
     bool must_break = false;
     size_t bytes_read = 0;
@@ -232,8 +229,8 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
         calloc(MSG_SIZE, sizeof(char));
     basic_msg_proto_t *msg = NULL;
     // This first while loop only closes with a signal
-    DEBUG("Entering subscriber loop.");
-    while (sigpipe_called == 0 && !must_break) {
+    while (must_break == 0) {
+        DEBUG("Entering subscriber loop.");
         // Waits for a new message
         pthread_mutex_lock(&box->total_message_size_lock);
         while (box->total_message_size <= bytes_read) {
@@ -242,6 +239,7 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
             pthread_cond_wait(&box->read_condvar,
                               &box->total_message_size_lock);
         }
+
         // Read remaining bytes
         DEBUG("Started reading messages");
         msg_buf = buf_og;
@@ -265,9 +263,13 @@ void register_subscriber(void *protocol, box_holder_t *box_holder) {
     }
     DEBUG("Quitting subscriber, cleaning up...");
 
+    DEBUG("Locking subscribers_count_lock")
     pthread_mutex_lock(&box->subscribers_count_lock);
     box->subscribers_count--;
+    DEBUG("Unlocking subscribers_count_lock")
     pthread_mutex_unlock(&box->subscribers_count_lock);
+
+    DEBUG("Finished subscriber");
 }
 
 void create_box(void *protocol, box_holder_t *box_holder) {
